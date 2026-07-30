@@ -347,9 +347,15 @@ recomputa os 1.297 quadros em JavaScript, concatena os hexadecimais e compara o
 | | |
 |---|---|
 | Pico derivado pelo pipeline | **9,93 m** (9,928 m) em 09/10/2023 00:00Z |
-| Cota observada pela Defesa Civil | **10,19 m** |
+| Cota observada pela Defesa Civil **na cheia de 09/10/2023** | **10,19 m** |
 | Erro | **0,26 m**, ou 2,6 % |
 | Cota das primeiras vias alagadas | 7,4 m |
+
+> A data importa. Outubro de 2023 foi o mês mais chuvoso da história de Blumenau,
+> com **quatro** enchentes, e o pico do mês foi mais alto que o desta cheia. Os
+> 10,19 m acima são a cota observada **na cheia de 09/10**, que é o evento que
+> este pipeline reconstrói. Comparar o resultado com o pico de outro evento do
+> mesmo mês seria comparar coisas diferentes.
 
 O pico ficou 0,26 m abaixo do observado, com o nó classificando `critical` e
 estágio `alerta_maximo`, ou seja, a decisão operacional (evacuar) foi a mesma
@@ -514,34 +520,56 @@ explicada na fala, não escondida no código.
 
 ## 13. Créditos, referências e histórico do projeto
 
-### Repositórios das etapas anteriores
+### O projeto e as etapas anteriores
 
-Este repositório reúne a entrega final. Os relatórios das etapas permanecem
-onde estão, com o conteúdo original:
+O Americas TechGuard é uma parceria entre o **Florida Institute of Technology** e
+os **Institutos SENAI**, financiada pela iniciativa **100,000 Strong in the
+Americas** (Partners of the Americas, com apoio do Departamento de Estado dos
+Estados Unidos).
+
+Trabalho de **Rosemeri Borges**, Centro Universitário SENAI/SC, Campus
+Florianópolis. Orientação: **Prof. Valério Piana**, **Prof. Lucas Lacerda** e
+**Prof. Alex Salazar**.
+
+Este repositório reúne a entrega final. Os relatórios das etapas anteriores
+permanecem onde estão, com o conteúdo original: este repositório
+**referencia, não substitui**.
 
 | Etapa | Resultado citável | Repositório |
 |---|---|---|
-| Projeto (visão geral) | | [Americas-TechGuard](https://github.com/RoseBorges44/Americas-TechGuard) |
+| Índice do projeto | visão geral e como as camadas se conectam | [Americas-TechGuard](https://github.com/RoseBorges44/Americas-TechGuard) |
 | Semana 5 | NDVI de Blumenau (Sentinel-2, Google Earth Engine) | [Americas-TechGuard-Semana5](https://github.com/RoseBorges44/Americas-TechGuard-Semana5) |
-| Semana 6 | HAND, 16,75 % da área em alta suscetibilidade | [Americas-TechGuard-Semana6](https://github.com/RoseBorges44/Americas-TechGuard-Semana6) |
-| Semana 7 | U-RNN, inferência de cerca de 0,36 s 🔶 | [Americas-TechGuard-Semana7](https://github.com/RoseBorges44/Americas-TechGuard-Semana7) |
-| Semana 8 | ATG-ENV, ATG-C1, malha, firmware ESP32, 30 testes | [Americas-TechGuard-Semana8](https://github.com/RoseBorges44/Americas-TechGuard-Semana8) |
+| Semana 6 | HAND: 16,75 % dos 2.228 km² da área de contribuição em alta suscetibilidade | [Americas-TechGuard-Semana6](https://github.com/RoseBorges44/Americas-TechGuard-Semana6) |
+| Período 7 | U-RNN: CSI 0,678 · MAE 0,010 m · inferência ~0,36 s 🔶 | [Americas-TechGuard-Semana7](https://github.com/RoseBorges44/Americas-TechGuard-Semana7) |
+| Período 8 | ATG-ENV, ATG-C1, malha, firmware ESP32, 30 testes | [Americas-TechGuard-Semana8](https://github.com/RoseBorges44/Americas-TechGuard-Semana8) |
+
+O projeto começa na Semana 5: não existem repositórios de Semanas 2 a 4.
 
 ### Fontes de dados
 
 - **ERA5-Land** via Open-Meteo. Reanálise de chuva horária.
 - **GloFAS** via Open-Meteo. Vazão de rio, diária.
-- **AlertaBlu**, Defesa Civil de Blumenau. Escada oficial de estágios e cota
-  observada.
-- **HAND** (Height Above Nearest Drainage), derivado na Semana 6.
+- **AlertaBlu**, Proteção e Defesa Civil de Blumenau. Escada oficial de estágios
+  e cota observada.
+- **HAND** (Height Above Nearest Drainage), derivado na Semana 6 sobre
+  ANADEM/SGB-CPRM.
+- **Sentinel-2** para o NDVI da Semana 5.
 
-### Referência metodológica
+Toda a coleta é reproduzível **sem chave de API**.
 
-Zakaria et al. (2023) classificam inundação combinando nível absoluto e taxa de
-variação. Este projeto segue essa estrutura com duas diferenças declaradas: os
-limiares de nível são os oficiais do Itajaí-Açu em Blumenau (3, 4, 6 e 8 m) em
-vez de valores de laboratório, e a taxa é medida em cm/h em vez de cm/min,
-porque a escala útil num rio de grande porte é outra.
+### Referências metodológicas
+
+- **Zakaria et al. (2023)** classificam inundação combinando nível absoluto e
+  taxa de variação. Este projeto segue essa estrutura com duas diferenças
+  declaradas: os limiares de nível são os oficiais do Itajaí-Açu em Blumenau
+  (3, 4, 6 e 8 m) em vez de valores de laboratório, e a taxa é medida em cm/h em
+  vez de cm/min, porque a escala útil num rio de grande porte é outra.
+- **Cao et al. (2025)**, modelo U-RNN, base da reimplementação do Período 7.
+- A metodologia HAND da Semana 6 foi adaptada do código-base do **Prof. Alex
+  Salazar**, originalmente desenvolvido para Porto Alegre/RS.
+- **Semtech SX1276**, datasheet seção 4.1.1.7, para o cálculo de tempo no ar.
+- Documentação oficial do **Meshtastic** para presets de modem, limites de
+  payload e a tabela *LoRa Region by Country*.
 
 ### Software
 
