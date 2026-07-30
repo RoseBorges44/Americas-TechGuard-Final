@@ -1,13 +1,22 @@
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
 import ATG from "../atg_core.js"; // fonte única (mesmo arquivo que o navegador carrega)
 const { toC1Bin, toHex, assess } = ATG;
 
 // caminhos relativos à raiz do repositório (este arquivo mora em tests/)
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
-const ref = JSON.parse(readFileSync(ROOT + "tests/ref.json", "utf8"));
-const th = { h1_attention:4.1, h1_alert:8.7, h1_critical:16.85,
-             h24_attention:27.3, h24_alert:46.3, h24_critical:92.87 };
+
+const REF = ROOT + "tests/ref.json";
+if (!existsSync(REF)) {
+  console.error("\nFalta tests/ref.json, que é a referência gerada pelo Python.");
+  console.error("Rode primeiro:\n\n    python tests/gen_ref.py\n");
+  process.exit(1);
+}
+const ref = JSON.parse(readFileSync(REF, "utf8"));
+
+// limiares do próprio metrics.json (fonte única, Regra §1.1): não chumbar aqui
+const th = JSON.parse(readFileSync(ROOT + "python/outputs/metrics.json", "utf8"))
+             .data.rain_thresholds;
 
 let byteOK=0, byteBad=[], riskOK=0, riskBad=[];
 for (const r of ref) {

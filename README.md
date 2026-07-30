@@ -371,6 +371,25 @@ enquanto os outros quatro entregam 100 % e mascaram a falha na média geral. Em
 alerta de enchente, o nó que falha é justamente o que fica isolado, e é o que
 mais precisa ser ouvido.
 
+E os 52,7 % não são um número solto. O enlace direto de Vila Itoupava ao gateway
+tem 18,44 km e margem de apenas **+0,5 dB** sobre o limite de demodulação de
+SF 11 (ver `python/outputs/topology.csv`). Com sombreamento log-normal de
+sigma 6 dB, a chance de um pacote sobreviver a esse enlace é
+`Phi(0,5 / 6) = 53,3 %`. O PDR medido na simulação foi 52,7 %, uma diferença de
+0,6 ponto percentual. O nó não falha por azar: ele opera na fronteira exata da
+sensibilidade do rádio, e é o sombreamento que decide cada pacote.
+
+A malha resolve isso porque o mesmo nó alcança ATG-BLU-02 Itoupava Central a
+8,76 km com margem de +8,8 dB, e o repetidor do Morro do Aipim (ATG-BLU-03) a
+16,65 km com +2,1 dB. Com `hop_limit = 3`, deixa de depender do enlace que está
+no limite. **Esta é a previsão central que o ensaio de campo precisa derrubar ou
+confirmar:** ver `docs/protocolo_ensaio_campo.md`, seção 2.2.
+
+A topologia completa tem sete nós: os cinco emissores acima, o repetidor
+ATG-BLU-03 no Morro do Aipim e o gateway ATG-BLU-GW na Defesa Civil. O nó 03 e
+o gateway não emitem leituras, e por isso não aparecem na tabela de payloads da
+seção 5.
+
 ### Rádio
 
 | Métrica | Valor |

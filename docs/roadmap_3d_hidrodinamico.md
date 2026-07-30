@@ -10,7 +10,7 @@
 |---|---|---|
 | Modelo | Height Above Nearest Drainage - geométrico | Equações de águas rasas (física) |
 | Saída | Extensão da lâmina (onde molha) | Profundidade **e** velocidade por célula, no tempo |
-| Escala | Regional (~30–90 m) | Rua/edificação (~1 m) |
+| Escala | Regional (~30-90 m) | Rua/edificação (~1 m) |
 | Custo | Segundos, offline, sem dado extra | Dado + malha + compute + calibração |
 | Selo | 🔶 aproximação declarada | ⬜ requer dado e validação |
 
@@ -65,7 +65,7 @@ QGIS/ArcGIS, HEC-RAS 2D, Iber, LISFLOOD-FP e SFINCS são **gratuitos**. O que fa
 ## 6. Critérios de aceite
 
 - [ ] DEM ≤ 1 m validado (RMSE vertical reportado).
-- [ ] Modelo 2D rodado para o evento 04–14/10/2023.
+- [ ] Modelo 2D rodado para o evento 04-14/10/2023.
 - [ ] Extensão simulada vs. observada: Fit ≥ 0,7 (ou critério acordado com a Defesa Civil).
 - [ ] Profundidade nas seções dentro da tolerância das réguas.
 - [ ] Resultado exportado como grade embutida (offline, mesmo padrão do HAND).

@@ -7,14 +7,14 @@ reescrita**. Esta pasta documenta exatamente o que ligar onde.
 
 ## 1. O que já é compatível byte a byte
 
-`atg_node.ino` monta a struct `atg_c1_t` (23 bytes, little-endian) com o
-**mesmo layout** do `struct.pack("<BIIiihhBB", ...)` de `src/atg_mesh/codec.py`.
+`firmware/atg_node.ino` monta a struct `atg_c1_t` (23 bytes, little-endian) com o
+**mesmo layout** do `struct.pack("<BIIiihhBB", ...)` de `python/src/atg_mesh/codec.py`.
 Ou seja: o payload produzido pelo ESP32 é decodificado pelo `from_c1_bin()`
 Python sem nenhuma adaptação. Isso pode ser conferido sem placa nenhuma:
 
 ```bash
 python -c "
-import sys; sys.path.insert(0,'src')
+import sys; sys.path.insert(0,'python/src')
 from atg_mesh.codec import from_c1_bin
 print(from_c1_bin(bytes.fromhex('11060073a7e09d536ad44065fefc4d13fd820218010257')))"
 ```
@@ -28,22 +28,22 @@ print(from_c1_bin(bytes.fromhex('11060073a7e09d536ad44065fefc4d13fd820218010257'
 | TRIG  | GPIO 12 |
 | ECHO  | GPIO 13 (divisor 5 V → 3,3 V: 1 kΩ / 2 kΩ) |
 
-Alimentação: LiPo 3,7 V (2000–3000 mAh) ou 18650 (3000–3400 mAh), como na lista
+Alimentação: LiPo 3,7 V (2000-3000 mAh) ou 18650 (3000-3400 mAh), como na lista
 do enunciado. Antena 5 dBi SMA 915 MHz nos nós de campo; 8 dBi no repetidor de
 ponto elevado (Morro do Aipim) e no gateway.
 
 ## 3. Rádio
 
 ```bash
-./meshtastic_cli_config.sh /dev/ttyUSB0 ATG-BLU-06 06
+./firmware/meshtastic_cli_config.sh /dev/ttyUSB0 ATG-BLU-06 06
 ```
 
 Pontos que valem atenção:
 
 - **Região `ANZ`, não `BR_902`.** A tabela oficial *LoRa Region by Country* do
   Meshtastic lista o Brasil como `ANZ | BR_902`. `BR_902` opera em
-  **902–907,5 MHz**; a atividade exige **915 MHz obrigatório**, faixa coberta
-  por `ANZ` (915–928 MHz). Nós com regiões diferentes não se falam.
+  **902-907,5 MHz**; a atividade exige **915 MHz obrigatório**, faixa coberta
+  por `ANZ` (915-928 MHz). Nós com regiões diferentes não se falam.
 - **Preset `LONG_FAST`** = BW 250 kHz, SF 11, CR 4/5 (documentação oficial).
   Todos os nós precisam do **mesmo preset**.
 - **`mqtt.json_enabled true`** não funciona em plataformas nRF52 - nas três
@@ -64,14 +64,20 @@ a API Python/C++ do Meshtastic. Mais limpo, exige firmware customizado.
 
 ## 5. Testes que eu faria em Joinville (roteiro pronto)
 
+> Este roteiro é o esboço original da Semana 8. O protocolo completo, com as
+> previsões numéricas declaradas antes da medição e os critérios de aceite de
+> cada ensaio, está em [`../docs/protocolo_ensaio_campo.md`](../docs/protocolo_ensaio_campo.md).
+> Os números de PDR aqui vêm de `../python/outputs/metrics.json`, que é a fonte
+> autoritativa.
+
 1. **Bancada:** dois nós na mesa, `--info`, confirmar região/preset/canal;
    enviar um ATG-C1-B64 e conferir no app Meshtastic do celular.
 2. **Range test:** módulo *Range Test* do Meshtastic, caminhada de 100 em 100 m,
    registrando RSSI/SNR/PDR - exatamente o protocolo de Zakaria et al. (2023),
-   que varreu 100–600 m com SF7 e SF12.
+   que varreu 100-600 m com SF7 e SF12.
 3. **Multi-hop:** afastar o nó de origem até perder o enlace direto e verificar
    se o repetidor mantém a entrega (é a hipótese que a simulação quantifica:
-   PDR de 54,2% → 100% no nó mais distante).
+   PDR de 52,7% → 100% no nó mais distante).
 4. **Duty cycle real:** medir o *airtime* reportado pelo firmware e comparar com
    `lora.time_on_air_s()` (previsão: 0,559 s por pacote de 23 B em LongFast).
 5. **Bateria:** logar `battery_level` da telemetria por 72 h com o reporte
