@@ -3,7 +3,8 @@
 # ATG P8 - Configuracao dos nos Meshtastic (Meshtastic Python CLI)
 #
 #   pip install meshtastic
-#   ./hardware/meshtastic_cli_config.sh /dev/ttyUSB0 ATG-BLU-06 06
+#   cp .env.example .env   &&   editar .env   (define MQTT_HOST e a PSK)
+#   ./firmware/meshtastic_cli_config.sh /dev/ttyUSB0 ATG-BLU-06 06
 #
 # Hardware alvo (o disponibilizado pelo prof. Lucas, em Joinville):
 #   - LILYGO TTGO T-Beam V1.1  (ESP32 + SX1276 + GPS)
@@ -21,9 +22,19 @@
 # =============================================================================
 set -euo pipefail
 
-PORT="${1:-/dev/ttyUSB0}"
+# Configuracao local, fora do repositorio (ver .env.example). Nao e obrigatorio:
+# sem .env o script configura o radio e para antes do bloco de MQTT.
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ -f "$ROOT/.env" ]]; then
+  set -a; . "$ROOT/.env"; set +a
+  echo ">> .env carregado"
+fi
+
+PORT="${1:-${ATG_SERIAL_PORT:-/dev/ttyUSB0}}"
 LONGNAME="${2:-ATG-BLU-06}"
 SHORTNAME="${3:-06}"
+MQTT_HOST="${MQTT_HOST:-}"
+ATG_CHANNEL_PSK="${ATG_CHANNEL_PSK:-}"
 
 echo ">> Radio: regiao ANZ (915 MHz), preset LongFast, 3 saltos, 22 dBm"
 meshtastic --port "$PORT" \
@@ -37,24 +48,38 @@ echo ">> Identidade do no"
 meshtastic --port "$PORT" --set-owner "$LONGNAME" --set-owner-short "$SHORTNAME"
 
 echo ">> Canal primario ATG-Blumenau (uplink + downlink habilitados)"
-# A PSK deve ser gerada por voce e NAO versionada:
-#   PSK=$(openssl rand -base64 32)
 meshtastic --port "$PORT" \
   --ch-index 0 --ch-set name ATG-Blumenau \
   --ch-set uplink_enabled true \
   --ch-set downlink_enabled true
 
+# A PSK e gerada por voce (openssl rand -base64 32), fica no .env e NAO entra no
+# repositorio. Todos os nos precisam da MESMA chave para se falarem.
+if [[ -n "$ATG_CHANNEL_PSK" ]]; then
+  echo ">> Aplicando a PSK do canal (vinda do .env)"
+  meshtastic --port "$PORT" --ch-index 0 --ch-set psk "$ATG_CHANNEL_PSK"
+else
+  echo ">> ATENCAO: ATG_CHANNEL_PSK vazia. O canal fica com a chave padrao do"
+  echo "   Meshtastic, que e publica. Nao usar assim em operacao real:"
+  echo "   com a chave padrao qualquer pessoa injeta alerta falso na malha."
+fi
+
 echo ">> Canal 'mqtt' (obrigatorio para o DOWNLINK JSON chegar na malha)"
 meshtastic --port "$PORT" --ch-add mqtt
 meshtastic --port "$PORT" --ch-index 1 --ch-set downlink_enabled true
 
-echo ">> Modulo MQTT com JSON habilitado (nao suportado em nRF52; ok no ESP32)"
-meshtastic --port "$PORT" \
-  --set mqtt.enabled true \
-  --set mqtt.json_enabled true \
-  --set mqtt.root msh/BR \
-  --set mqtt.address "$MQTT_HOST" \
-  --set mqtt.proxy_to_client_enabled true
+if [[ -z "$MQTT_HOST" ]]; then
+  echo ">> MQTT_HOST vazia: pulando o bloco de MQTT."
+  echo "   Para configurar o broker, defina MQTT_HOST no .env (ver .env.example)."
+else
+  echo ">> Modulo MQTT com JSON habilitado (nao suportado em nRF52; ok no ESP32)"
+  meshtastic --port "$PORT" \
+    --set mqtt.enabled true \
+    --set mqtt.json_enabled true \
+    --set mqtt.root msh/BR \
+    --set mqtt.address "$MQTT_HOST" \
+    --set mqtt.proxy_to_client_enabled true
+fi
 
 echo ">> Telemetria de dispositivo e ambiente"
 meshtastic --port "$PORT" \
