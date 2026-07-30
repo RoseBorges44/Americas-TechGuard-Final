@@ -1,0 +1,19 @@
+# Normalizacao de fim de linha.
+#
+# Isto NAO e cosmetico. Os hashes de proveniencia deste repositorio
+# (meta.source_sha256 em data/event.json, o SHA-256 da paridade em
+# data/parity_ref.js) sao calculados sobre arquivos com terminador LF.
+# Um checkout que convertesse para CRLF mudaria o tamanho e o hash dos
+# dados de origem e a verificacao de proveniencia falharia sem que o
+# conteudo tivesse mudado.
+* text=auto eol=lf
+
+# Dados de origem e saidas do pipeline: byte a byte, sem conversao alguma.
+python/outputs/** -text
+python/data/** -text
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.tif binary
+*.woff2 binary

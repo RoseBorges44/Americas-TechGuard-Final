@@ -1,0 +1,33 @@
+# Credenciais: NUNCA versionar (Regra inviolavel §1.2).
+# Apenas .env.example, com valores vazios, entra no repositorio.
+.env
+.env.*
+!.env.example
+secrets.*
+*.psk
+*.pem
+*.key
+
+# Raster HAND original da Semana 6 (hand_blumenau_hand.tif, 27 MB).
+# Nao versionado por tamanho. Para regenerar assets/hand/hand.js, baixe-o
+# do repositorio da Semana 6 e coloque-o em assets/hand/ (ver o README de lá).
+*.tif
+*.tiff
+
+# Artefatos gerados por ferramentas locais
+tests/ref.json
+_shot*.png
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# Sistema operacional / editor
+Thumbs.db
+desktop.ini
+.DS_Store

@@ -1,0 +1,1417 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ATG · Blumenau · 04–14 out 2023</title>
+
+  <!--
+    Americas TechGuard - maquete (Fase 2). Painel de instrumento hidrológico.
+    Regras invioláveis: abre por file:// com Wi-Fi desligado (sem CDN, sem npm,
+    sem build, sem chamada de rede). Todo número exibido vem de data/ ou dos
+    Fatos Verificados do plano. Tudo aqui é ESTRUTURA (2.1); os painéis chegam
+    nas tarefas 2.3–2.11.
+  -->
+
+  <style>
+    /* ---- paleta (montada para as tarefas seguintes) ----
+       Água do Itajaí-Açu em cheia: turva, ocre-barrenta - não azul.
+       Fundo em papel técnico claro. Estados nas cores da Defesa Civil. */
+    :root {
+      --paper:      #eceae2;   /* papel técnico claro */
+      --paper-line: #d9d5c7;   /* linhas de grade do papel */
+      --ink:        #23201a;   /* texto principal */
+      --ink-soft:   #6b6455;   /* texto secundário */
+      --water:      #9a6b2f;   /* ocre-barrento (lâmina d'água) */
+      --water-deep: #6f4a1c;
+
+      /* estados de risco - Defesa Civil */
+      --safe:     #2f7d3b;
+      --attention:#d8b52a;
+      --alert:    #d67a1e;
+      --critical: #b3241f;
+
+      --seal-real: #2f7d3b;   /* ✅ */
+      --seal-sim:  #c88a1a;   /* 🔶 */
+      --seal-todo: #8a8578;   /* ⬜ */
+
+      --gap: 6px;
+      --mono: ui-monospace, "Cascadia Mono", "Consolas", "Courier New", monospace;
+      --sans: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      /* grade sutil de papel técnico */
+      background-image:
+        linear-gradient(var(--paper-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--paper-line) 1px, transparent 1px);
+      background-size: 22px 22px, 22px 22px;
+      background-blend-mode: multiply;
+    }
+
+    /* alvo Meet: legível em 1366×768 compartilhado */
+    .app {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 7px 10px 8px;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: var(--gap);
+      height: 100vh;
+    }
+
+    /* ---- barra superior (controles chegam em 2.9) ---- */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 5px 10px;
+      background: #f6f4ee; border: 1px solid var(--paper-line); border-radius: 8px;
+    }
+    .topbar .title { font-weight: 700; letter-spacing: .2px; }
+    .topbar .title small { color: var(--ink-soft); font-weight: 500; }
+    .topbar .controls { display: flex; align-items: center; gap: 6px; }
+    .cgroup { display: inline-flex; gap: 2px; padding: 2px; background: #ece9e0; border-radius: 8px; }
+    .cbtn {
+      font: 600 12px var(--sans); color: var(--ink); cursor: pointer;
+      text-transform: none; letter-spacing: normal;
+      background: #f6f4ee; border: 1px solid var(--paper-line); border-radius: 6px;
+      padding: 3px 9px; line-height: 1.4;
+    }
+    .cbtn:hover { background: #fff; }
+    .cgroup .cbtn { border: none; background: transparent; padding: 3px 8px; }
+    .cgroup .cbtn.active { background: var(--water); color: #fff; }
+    .cbtn.play { font-size: 13px; min-width: 30px; }
+    .cbtn.play.playing { background: var(--water); color: #fff; }
+
+    /* ---- boot / auto-teste ---- */
+    .boot {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 5px 10px; border-radius: 8px; border: 1px solid var(--paper-line);
+      background: #f6f4ee; font-size: 12.5px;
+    }
+    .boot .lamp {
+      width: 11px; height: 11px; border-radius: 50%;
+      background: var(--seal-todo); flex: 0 0 auto;
+    }
+    .boot.ok  .lamp { background: var(--safe); }
+    .boot.bad .lamp { background: var(--critical); }
+    .boot code { font-family: var(--mono); font-size: 12px; color: var(--water-deep); }
+    .boot .msg { color: var(--ink-soft); }
+    .boot.bad .msg { color: var(--critical); font-weight: 600; }
+    .cbtn.parity { margin-left: auto; font-weight: 700; background: var(--water); color: #fff; border-color: var(--water-deep); }
+    .cbtn.parity:hover { background: var(--water-deep); }
+    .cbtn.parity:disabled { opacity: .6; cursor: default; }
+    .parity-result { font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+    .parity-result.ok { color: var(--safe); font-weight: 700; }
+    .parity-result.bad { color: var(--critical); font-weight: 700; }
+    .parity-result code { font-family: var(--mono); font-size: 11px; }
+
+    /* ---- grade principal (espelha o layout do plano) ---- */
+    .grid {
+      display: grid;
+      grid-template-columns: 208px 1.35fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: var(--gap);
+      grid-template-areas:
+        "regua mapa   quadro"
+        "regua hidro  malha";
+      min-height: 0;
+    }
+    .r-regua  { grid-area: regua;  }
+    .r-mapa   { grid-area: mapa;   }
+    .r-quadro { grid-area: quadro; }
+    .r-hidro  { grid-area: hidro;  }
+    .r-malha  { grid-area: malha;  }
+
+    .panel {
+      position: relative;
+      border: 1px solid var(--paper-line); border-radius: 8px;
+      background: #f6f4ee;
+      padding: 6px 9px;
+      display: flex; flex-direction: column; gap: 4px;
+      overflow: hidden;
+    }
+    .panel > .head {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; letter-spacing: .3px; text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+    .panel > .placeholder {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      text-align: center; color: var(--ink-soft); font-size: 12px;
+      border: 1px dashed var(--paper-line); border-radius: 6px;
+      padding: 8px;
+    }
+    .panel .task { font-family: var(--mono); font-size: 11px; color: var(--seal-todo); }
+
+    /* régua: o instrumento-assinatura (2.3) - toda a ousadia visual vive aqui */
+    .r-regua { align-items: stretch; }
+    .regua-readout {
+      display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+      padding: 2px 2px 4px;
+    }
+    .regua-readout .cota {
+      font-family: var(--sans); font-weight: 800; font-size: 34px;
+      line-height: 1; letter-spacing: -1px; color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+    .regua-readout .stage-chip {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .3px; color: #fff; padding: 2px 8px; border-radius: 999px;
+      background: var(--seal-todo); white-space: nowrap;
+    }
+    .regua-readout .sub {
+      flex-basis: 100%; font-size: 11px; color: var(--ink-soft); margin-top: 1px;
+    }
+    .regua-wrap { flex: 1; min-height: 0; }
+    .regua-wrap svg { width: 100%; height: 100%; display: block; }
+    .regua-wrap text { font-family: var(--sans); }
+    .regua-cap {
+      font-size: 10.5px; line-height: 1.35; color: var(--ink-soft);
+      border-top: 1px solid var(--paper-line); padding-top: 6px;
+    }
+
+    /* ---- mapa HAND (2.4) ---- */
+    .mapa-body { flex: 1; display: flex; gap: 12px; min-height: 0; }
+    .hand-wrap {
+      position: relative; height: 100%; aspect-ratio: 1 / 1; max-width: 58%;
+      flex: 0 0 auto; border: 1px solid var(--paper-line); border-radius: 6px;
+      overflow: hidden; background: #efece3;
+    }
+    .hand-wrap canvas { width: 100%; height: 100%; display: block; image-rendering: auto; }
+    .cbtn.mapmode { margin-left: auto; padding: 1px 7px; font-size: 11px; }
+    .cbtn.mapmode.on { background: var(--water); color: #fff; border-color: var(--water-deep); }
+    .hand-nodes { position: absolute; inset: 0; pointer-events: none; }
+    .hand-node {
+      position: absolute; transform: translate(-50%, -50%);
+      display: flex; align-items: center; gap: 3px; white-space: nowrap;
+    }
+    .hand-node .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #33302a; border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.3);
+    }
+    .hand-node.river .dot {
+      width: 11px; height: 11px; border-radius: 3px;
+      background: var(--water-deep); border-color: #fff;
+    }
+    .hand-node .lbl {
+      font-size: 9.5px; font-weight: 700; color: var(--ink);
+      background: rgba(246,244,238,.82); padding: 0 3px; border-radius: 3px;
+    }
+    .mapa-legend {
+      flex: 1; display: flex; flex-direction: column; gap: 7px;
+      font-size: 11px; color: var(--ink-soft); min-width: 0;
+    }
+    .ml-cota { display: flex; align-items: baseline; gap: 8px; }
+    .ml-cota #mapa-cota {
+      font-weight: 800; font-size: 22px; color: var(--ink); letter-spacing: -.5px;
+      font-variant-numeric: tabular-nums;
+    }
+    .ml-classes { display: flex; flex-direction: column; gap: 3px; }
+    .ml-classes div { display: flex; align-items: center; gap: 6px; }
+    .ml-classes i { width: 13px; height: 13px; border-radius: 3px; flex: 0 0 auto;
+      border: 1px solid rgba(0,0,0,.15); }
+    .ml-note {
+      font-size: 10px; line-height: 1.35; margin-top: auto;
+      border-top: 1px solid var(--paper-line); padding-top: 6px;
+    }
+
+    /* ---- hidrograma + chuva (2.5) ---- */
+    .hidro-read {
+      margin-left: auto; text-transform: none; letter-spacing: 0;
+      font-size: 11px; color: var(--ink-soft); font-variant-numeric: tabular-nums;
+    }
+    .hidro-read b { color: var(--ink); font-weight: 700; }
+    .hidro-wrap { flex: 1; min-height: 0; cursor: ew-resize; }
+    .hidro-wrap svg { width: 100%; height: 100%; display: block; }
+    .hidro-wrap text { font-family: var(--sans); }
+
+    /* ---- quadro ATG-C1 (2.6) ---- */
+    .quadro-contrast { display: flex; flex-direction: column; gap: 3px; margin: 1px 0 2px; }
+    .cbar-row { display: flex; align-items: center; gap: 8px; font-size: 10.5px; color: var(--ink-soft); }
+    .cbar-row .cap { width: 118px; flex: 0 0 auto; text-align: right; }
+    .cbar-row .cap b { color: var(--ink); }
+    .cbar-track { flex: 1; height: 13px; background: #e6e2d6; border-radius: 3px; overflow: hidden; }
+    .cbar-fill { height: 100%; border-radius: 3px; }
+    .cbar-fill.json { background: #c9b79a; }
+    .cbar-fill.bin { background: var(--water); }
+    .quadro-hex {
+      font-family: var(--mono); font-size: 12px; line-height: 1.7;
+      display: flex; flex-wrap: wrap; gap: 3px; margin: 3px 0 5px;
+    }
+    .qgroup { display: inline-flex; gap: 2px; padding: 1px 3px; border-radius: 4px; }
+    .qbyte { padding: 0 1px; color: var(--ink); }
+    .quadro-table { font-size: 10px; border-collapse: collapse; width: 100%; }
+    .quadro-table td { padding: 0.5px 5px; border-bottom: 1px solid var(--paper-line); vertical-align: top; }
+    .quadro-table .off { color: var(--ink-soft); font-family: var(--mono); white-space: nowrap; }
+    .quadro-table .hex { font-family: var(--mono); color: var(--water-deep); white-space: nowrap; }
+    .quadro-table .nm { color: var(--ink-soft); }
+    .quadro-table .val { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .qsw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: baseline; }
+
+    /* ---- malha + dois canais / corte da torre (2.7 / 3.x) ---- */
+    .malha-body { flex: 1; display: flex; flex-direction: row; gap: 8px; min-height: 0; }
+    .malha-metrics { flex: 0 0 150px; display: flex; flex-direction: column; gap: 5px;
+      font-size: 10.5px; color: var(--ink-soft); }
+    .mm-row { display: flex; align-items: baseline; justify-content: space-between; }
+    .mm-row b { font-size: 17px; font-weight: 800; color: var(--safe); font-variant-numeric: tabular-nums; }
+    .mm-vs { line-height: 1.4; } .mm-vs b { color: var(--ink); }
+    .mm-vs .warn { color: var(--critical); }
+    .mm-small { line-height: 1.45; }
+    .mm-note { margin-top: auto; font-size: 9.5px; line-height: 1.35;
+      border-top: 1px solid var(--paper-line); padding-top: 5px; }
+    .mm-note b { color: var(--ink); }
+
+    .cbtn.tower { margin-left: auto; font-weight: 700; background: #f6f4ee; color: var(--critical); border-color: var(--critical); }
+    .cbtn.tower:hover { background: #fff; }
+    .cbtn.tower.cut { background: var(--critical); color: #fff; }
+
+    .channel { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .ch-head { display: flex; align-items: baseline; justify-content: space-between; gap: 4px;
+      font-size: 10.5px; font-weight: 700; color: var(--ink); }
+    .ch-head small { font-weight: 400; color: var(--ink-soft); }
+    #ch-net .ch-head { color: #3f6d99; }
+    .ch-count { font-size: 10px; color: var(--ink-soft); }
+    .ch-count b { color: var(--ink); font-variant-numeric: tabular-nums; }
+    .net-lost { color: var(--critical); font-weight: 700; }
+
+    .phone {
+      flex: 1; min-height: 0; background: #2a2622; border-radius: 16px;
+      padding: 7px 6px; display: flex; flex-direction: column;
+      box-shadow: 0 3px 10px rgba(0,0,0,.18);
+    }
+    #ch-net.cut .phone { filter: grayscale(.75); }
+    .phone-notch { width: 40px; height: 4px; background: #000; border-radius: 3px; margin: 1px auto 6px; }
+    .phone-screen { position: relative; flex: 1; background: #f3f1ea; border-radius: 11px; padding: 8px; display: flex; overflow: hidden; }
+    .cel-card {
+      display: flex; flex-direction: column; gap: 4px; width: 100%;
+      border-left: 4px solid var(--safe); padding-left: 7px;
+    }
+    .cel-card.attention { border-color: var(--attention); }
+    .cel-card.alert { border-color: var(--alert); }
+    .cel-card.critical { border-color: var(--critical); }
+    .cel-app { font-size: 9px; color: var(--ink-soft); font-weight: 700; }
+    .cel-level { font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .2px; color: var(--safe); }
+    .cel-card.attention .cel-level { color: #b07d0a; }
+    .cel-card.alert .cel-level { color: var(--alert); }
+    .cel-card.critical .cel-level { color: var(--critical); }
+    .cel-msg { font-size: 9.5px; line-height: 1.3; color: var(--ink); }
+    .cel-time { font-size: 8px; color: var(--ink-soft); margin-top: auto; }
+    .net-frozen {
+      position: absolute; inset: 0; background: rgba(40,36,34,.9); color: #fff;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; font-weight: 800; font-size: 12px; letter-spacing: .3px;
+    }
+    .net-frozen small { font-weight: 500; opacity: .85; }
+    .net-frozen[hidden] { display: none; }
+
+    /* celular ocupa o rodapé da coluna direita */
+    .r-malha { }
+
+    /* selo de honestidade */
+    .seal { font-size: 11px; }
+    .seal.real { color: var(--seal-real); }
+    .seal.sim  { color: var(--seal-sim); }
+    .seal.todo { color: var(--seal-todo); }
+
+    /* ---- legenda de honestidade (2.10 detalha a contagem) ---- */
+    .legend {
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      padding: 5px 10px; border: 1px solid var(--paper-line); border-radius: 8px;
+      background: #f6f4ee; font-size: 12px; color: var(--ink-soft);
+    }
+    .legend b { color: var(--ink); font-weight: 700; }
+    .legend .item { display: flex; align-items: center; gap: 6px; }
+    .legend .seal { cursor: help; }
+    .legend .lg-tot { font-size: 11px; color: var(--seal-todo); }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+
+    <!-- BARRA SUPERIOR - controles reais em 2.9 -->
+    <header class="topbar">
+      <div class="title">ATG · Blumenau <small>· 04–14 out 2023</small></div>
+      <div class="controls" id="controls">
+        <button id="c-play" class="cbtn play" title="reproduzir / pausar" aria-label="reproduzir">▶</button>
+        <span class="cgroup" id="c-speed">
+          <button class="cbtn sp" data-sp="1">1×</button>
+          <button class="cbtn sp" data-sp="8">8×</button>
+          <button class="cbtn sp active" data-sp="60">60×</button>
+        </span>
+        <span class="cgroup">
+          <button class="cbtn" data-jump="inicio">04/10 início</button>
+          <button class="cbtn" data-jump="subida">08/10 subida</button>
+          <button class="cbtn" data-jump="pico">09/10 pico</button>
+        </span>
+        <button id="c-reset" class="cbtn" title="reiniciar" aria-label="reiniciar">↺</button>
+      </div>
+    </header>
+
+    <!-- BOOT / AUTO-TESTE - prova, offline, que o núcleo carregou -->
+    <section id="boot" class="boot" role="status" aria-live="polite">
+      <span class="lamp" aria-hidden="true"></span>
+      <span id="boot-msg" class="msg">verificando núcleo…</span>
+      <code id="boot-hex"></code>
+      <button id="parity-btn" class="cbtn parity" title="roda os 1.297 payloads no navegador e compara byte a byte com a referência Python">Verificar paridade · 1.297 payloads</button>
+      <span id="parity-result" class="parity-result" aria-live="polite"></span>
+    </section>
+
+    <!-- GRADE PRINCIPAL - espelha o layout do plano -->
+    <section class="grid">
+      <div class="panel r-regua">
+        <div class="head">Régua fluviométrica <span class="seal real">✅</span></div>
+        <div class="regua-readout">
+          <span id="regua-cota" class="cota">-</span>
+          <span id="regua-stage" class="stage-chip">-</span>
+          <span id="regua-sub" class="sub"></span>
+        </div>
+        <div id="regua-svg" class="regua-wrap" role="img"
+             aria-label="Régua fluviométrica com a escada oficial da Defesa Civil"></div>
+        <div class="regua-cap">
+          Escada Defesa Civil de Blumenau: <b>3</b> observação · <b>4</b> atenção ·
+          <b>6</b> alerta · <b>8</b> alerta máximo (m).<br>
+          Referências: <b>7,4 m</b> primeiras vias · <b>9,93 m</b> pico derivado 🔶 ·
+          <b>10,19 m</b> oficial, observado (Defesa Civil).
+        </div>
+      </div>
+
+      <div class="panel r-mapa">
+        <div class="head">Mapa · HAND (Semana 6)
+          <span class="seal real">✅ raster</span>
+          <span class="seal sim">🔶 lâmina</span>
+          <button id="map-mode" class="cbtn mapmode" title="alterna entre planta 2D e vista 2.5D (lâmina em relevo)">🧊 2.5D</button>
+        </div>
+        <div class="mapa-body">
+          <div id="hand-wrap" class="hand-wrap">
+            <canvas id="hand-canvas" width="300" height="300"></canvas>
+            <div id="hand-nodes" class="hand-nodes"></div>
+          </div>
+          <div class="mapa-legend">
+            <div class="ml-cota">
+              <span id="mapa-cota">-</span>
+              <small>lâmina ≈ <span id="mapa-area">-</span></small>
+            </div>
+            <div class="ml-classes">
+              <div><i style="background:#e3c3a0"></i> Alta susceptibilidade (HAND ≤ 5 m)</div>
+              <div><i style="background:#e7d4b3"></i> Média (5–15 m)</div>
+              <div><i style="background:#e2ddca"></i> Baixa (15–40 m)</div>
+              <div><i style="background:#d7dcc8"></i> Muito baixa (&gt; 40 m)</div>
+              <div><i style="background:var(--water)"></i> Lâmina d'água (HAND &lt; cota)</div>
+            </div>
+            <div class="ml-note" id="map-note">
+              Raster HAND real da Semana 6 (✅). A lâmina é desenhada consultando o
+              HAND por cota; o mapeamento cota→inundação é simplificado (🔶).
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel r-quadro">
+        <div class="head">Quadro ATG-C1 <span class="seal real">✅</span>
+          <span id="quadro-ts" class="hidro-read"></span>
+        </div>
+        <div class="quadro-contrast">
+          <div class="cbar-row">
+            <span class="cap">ATG-ENV JSON<br><b>669 B</b></span>
+            <span class="cbar-track"><span class="cbar-fill json" style="width:100%"></span></span>
+          </div>
+          <div class="cbar-row">
+            <span class="cap">ATG-C1-BIN<br><b>23 B</b> · 29×</span>
+            <span class="cbar-track"><span class="cbar-fill bin" style="width:3.44%"></span></span>
+          </div>
+        </div>
+        <div id="quadro-hex" class="quadro-hex"></div>
+        <table id="quadro-table" class="quadro-table"></table>
+      </div>
+
+      <div class="panel r-hidro">
+        <div class="head">Hidrograma + chuva <span class="seal real">✅</span>
+          <span id="hidro-read" class="hidro-read"></span>
+        </div>
+        <div id="hidro" class="hidro-wrap" role="img"
+             aria-label="Hidrograma da cota do rio e barras de chuva ao longo do evento"></div>
+      </div>
+
+      <div class="panel r-malha">
+        <div class="head">Malha Meshtastic <span class="seal real">✅</span> · corte da torre <span class="seal sim">🔶</span>
+          <button id="tower-btn" class="cbtn tower" aria-pressed="false" title="simula a queda da torre de telefonia - congela o canal por internet">⚡ Queda da torre</button>
+        </div>
+        <div class="malha-body">
+          <div class="malha-metrics">
+            <div class="mm-row"><span>PDR malha</span><b id="m-pdr">-</b></div>
+            <div class="mm-vs">vs estrela (hop=1) <b id="m-star">-</b><br>
+              <span class="warn">Vila Itoupava <b id="m-vila">-</b></span> - o mesh é o ganho</div>
+            <div class="mm-small" id="m-small">-</div>
+            <div class="mm-note">🔶 O corte é <b>cenário simulado</b>, inspirado nas falhas de
+              comunicação de out/2023 - não é telemetria de queda real.</div>
+          </div>
+
+          <div class="channel" id="ch-mesh">
+            <div class="ch-head"><span>📡 Malha</span><small>Bluetooth</small></div>
+            <div class="phone">
+              <div class="phone-notch"></div>
+              <div class="phone-screen">
+                <div id="cel-card" class="cel-card">
+                  <div class="cel-app">⚠️ Defesa Civil</div>
+                  <div id="cel-level" class="cel-level">-</div>
+                  <div id="cel-msg" class="cel-msg">-</div>
+                  <div id="cel-time" class="cel-time"></div>
+                </div>
+              </div>
+            </div>
+            <div class="ch-count">entregues: <b id="mesh-count">0</b></div>
+          </div>
+
+          <div class="channel" id="ch-net">
+            <div class="ch-head"><span>🌐 Internet</span><small>SMS / app</small></div>
+            <div class="phone">
+              <div class="phone-notch"></div>
+              <div class="phone-screen">
+                <div id="net-card" class="cel-card">
+                  <div class="cel-app">⚠️ Defesa Civil</div>
+                  <div id="net-level" class="cel-level">-</div>
+                  <div id="net-msg" class="cel-msg">-</div>
+                  <div id="net-time" class="cel-time"></div>
+                </div>
+                <div id="net-frozen" class="net-frozen" hidden>🗼 TORRE CAÍDA<br><small>sem sinal</small></div>
+              </div>
+            </div>
+            <div class="ch-count">entregues: <b id="net-count">0</b> <span id="net-lost" class="net-lost"></span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LEGENDA DE HONESTIDADE - contagem por categoria (2.10) -->
+    <footer class="legend" id="legend">
+      <span class="item"><b>Selos do pipeline:</b></span>
+      <span class="item seal real" id="lg-real" title=""></span>
+      <span class="item seal sim" id="lg-sim" title=""></span>
+      <span class="item seal todo" id="lg-todo" title=""></span>
+      <span class="item lg-tot" id="lg-tot" style="margin-left:auto"></span>
+    </footer>
+  </main>
+
+  <!-- Núcleo verificado (codec + risco). Script CLÁSSICO: carrega por file://
+       sem CORS de módulo. Expõe window.ATG. -->
+  <script src="atg_core.js"></script>
+
+  <script>
+    // AUTO-TESTE DE BOOT (Fase 2.1)
+    // Reproduz, no navegador, o quadro do pico do evento a partir dos Fatos
+    // Verificados (§2 do plano) e confere contra o quadro de 23 bytes registrado.
+    // Nenhum número aqui é inventado: cada campo é citado do plano.
+    (function () {
+      var boot = document.getElementById("boot");
+      var msg  = document.getElementById("boot-msg");
+      var hexEl = document.getElementById("boot-hex");
+
+      function fail(text) {
+        boot.classList.remove("ok"); boot.classList.add("bad");
+        msg.textContent = text;
+      }
+
+      if (typeof window.ATG === "undefined" || typeof ATG.toC1Bin !== "function") {
+        fail("núcleo não carregou - atg_core.js não expôs window.ATG");
+        return;
+      }
+
+      // Payload do pico - Fatos Verificados §2 "Pico do evento":
+      //   node_num 2808872966 · 2023-10-09T00:00:00Z · lat −26,918700 · lon −49,066500
+      //   cota derivada 9,928 m (×100 = 993) · taxa +0,009 m/h (×1000 = 9)
+      //   risco critical · bateria 78 %
+      var pico = {
+        node_num: 2808872966,
+        timestamp: "2023-10-09T00:00:00Z",
+        latitude: -26.918700,
+        longitude: -49.066500,
+        sensor_type: "river_level",
+        sensor_value: 9.928,
+        rate_of_change: 0.009,
+        risk_level: "critical",
+        battery_pct: 78,
+      };
+
+      // Quadro ATG-C1 do pico (23 bytes) - Fatos Verificados §2:
+      var ESPERADO = "1106006ca780422365d44065fefc4d13fde1030900034e";
+
+      try {
+        var got = ATG.toHex(ATG.toC1Bin(pico));
+        hexEl.textContent = got;
+        if (got === ESPERADO && got.length === 46) {
+          boot.classList.add("ok");
+          msg.innerHTML = "núcleo carregado · offline · quadro do pico confere " +
+                          "(23 bytes) - <b>OK</b>";
+        } else {
+          fail("divergência no quadro do pico - o encoder do navegador não bate " +
+               "com o Fato Verificado (esperado " + ESPERADO + ")");
+        }
+      } catch (e) {
+        fail("erro ao codificar o quadro do pico: " + e.message);
+      }
+    })();
+  </script>
+
+  <!-- Dados do evento (1.297 payloads compactados). Script CLÁSSICO: expõe
+       window.ATG_EVENT - fetch de JSON é bloqueado por CORS em file://. -->
+  <script src="data/event.js"></script>
+  <!-- Métricas agregadas (malha, LoRa, tamanhos) - espelho de metrics.json. -->
+  <script src="data/metrics.js"></script>
+  <!-- 36 transições de alerta reais (mensagens ao morador) - espelho de alerts.json. -->
+  <script src="data/alerts.js"></script>
+  <!-- Referência Python (SHA-256 dos 1.297 quadros) para o botão de paridade. -->
+  <script src="data/parity_ref.js"></script>
+
+  <script>
+    // LINHA DO TEMPO COMPARTILHADA (Fase 2.5)
+    // Monta window.ATG_STATE: um passo por hora do evento (união dos timestamps),
+    // com cota do rio (ATG-BLU-06), taxa, risco/estágio e chuva média das 4
+    // estações. É a fonte única que dirige régua, mapa e hidrograma por tempo.
+    (function () {
+      var EV = window.ATG_EVENT;
+      if (!EV) return;
+      var riverIdx = -1, rainIdx = [];
+      EV.nodes.forEach(function (nd, i) {
+        if (nd.sensor_type === "river_level") riverIdx = i;
+        else if (nd.sensor_type === "rain_gauge") rainIdx.push(i);
+      });
+      var riverByTs = {}, rainByTs = {}, tsSet = {};
+      EV.records.forEach(function (r) {
+        tsSet[r.t] = 1;
+        if (r.n === riverIdx) riverByTs[r.t] = r;
+        else if (rainIdx.indexOf(r.n) >= 0) (rainByTs[r.t] = rainByTs[r.t] || []).push(r);
+      });
+      var times = Object.keys(tsSet).sort();
+      var lastCota = null, lastRate = null;
+      var steps = times.map(function (t) {
+        var rv = riverByTs[t];
+        if (rv) { lastCota = rv.v; lastRate = rv.r; }
+        var rains = rainByTs[t] || [];
+        var rainMean = rains.length ? rains.reduce(function (s, r) { return s + (r.v || 0); }, 0) / rains.length : 0;
+        var accMean = rains.length ? rains.reduce(function (s, r) { return s + (r.a || 0); }, 0) / rains.length : 0;
+        return { ts: t, cota: rv ? rv.v : lastCota, hasCota: !!rv,
+                 rate: rv ? rv.r : null, risk: rv ? rv.k : null, stage: rv ? rv.s : null,
+                 rain: rainMean, accum: accMean };
+      });
+      var picoIndex = 0, mx = -1, rainMax = 0;
+      steps.forEach(function (s, i) {
+        if (s.hasCota && s.cota > mx) { mx = s.cota; picoIndex = i; }
+        if (s.rain > rainMax) rainMax = s.rain;
+      });
+      window.ATG_STATE = { steps: steps, n: steps.length, picoIndex: picoIndex,
+                           cotaMax: mx, rainMax: rainMax };
+    })();
+  </script>
+
+  <script>
+    // RÉGUA FLUVIOMÉTRICA (Fase 2.3)
+    // Instrumento vertical com a escada oficial da Defesa Civil (3·4·6·8 m),
+    // a linha das primeiras vias (7,4 m), o pico derivado (9,93 m) e a cota
+    // oficial observada (10,19 m). A água (ocre-barrenta) sobe contra a régua.
+    // Todos os valores vêm dos Fatos Verificados §2 / de window.ATG_EVENT.
+    (function () {
+      var EV = window.ATG_EVENT;
+      var host = document.getElementById("regua-svg");
+      var cotaEl = document.getElementById("regua-cota");
+      var stageEl = document.getElementById("regua-stage");
+      var subEl = document.getElementById("regua-sub");
+      if (!host) return;
+      if (!EV || typeof window.ATG === "undefined") {
+        host.textContent = "dados/núcleo indisponíveis";
+        return;
+      }
+
+      // --- geometria (viewBox em unidades próprias; escala em metros) ---
+      var MINM = 0, MAXM = 11, VW = 208, VH = 548;
+      var RX = 82, RW = 52, TOP = 34, BOT = 520;      // barra da régua
+      var X0R = RX + RW + 8;                            // início das etiquetas à direita
+      function Y(m) { return BOT - (m - MINM) / (MAXM - MINM) * (BOT - TOP); }
+      function fmt(m) { return m.toFixed(2).replace(".", ","); }
+      function ts(iso) {
+        var m = iso.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+        return m ? m[3] + "/" + m[2] + "/" + m[1] + " " + m[4] + ":" + m[5] + "Z" : iso;
+      }
+      var STAGE_PT = { normalidade: "normalidade", observacao: "observação",
+        atencao: "atenção", alerta: "alerta", alerta_maximo: "alerta máximo" };
+      var RISK_COLOR = { safe: "var(--safe)", attention: "var(--attention)",
+        alert: "var(--alert)", critical: "var(--critical)" };
+
+      // --- pico (river_level) para o snapshot inicial ---
+      var riverIdx = -1;
+      for (var i = 0; i < EV.nodes.length; i++)
+        if (EV.nodes[i].sensor_type === "river_level") { riverIdx = i; break; }
+      var picoRec = EV.records
+        .filter(function (r) { return r.n === riverIdx; })
+        .reduce(function (a, b) { return b.v > a.v ? b : a; });
+      var PICO = picoRec.v;
+
+      // --- SVG estático ---
+      function line(x1, y1, x2, y2, stroke, w, dash) {
+        return '<line x1="' + x1 + '" y1="' + y1.toFixed(1) + '" x2="' + x2 +
+          '" y2="' + y2.toFixed(1) + '" stroke="' + stroke + '" stroke-width="' + w +
+          '"' + (dash ? ' stroke-dasharray="' + dash + '"' : "") + "/>";
+      }
+      function tag(x, y, lines, color) {
+        var t = '<text x="' + x + '" y="' + y.toFixed(1) + '" font-size="10" fill="' +
+          (color || "var(--ink)") + '">';
+        for (var i = 0; i < lines.length; i++)
+          t += '<tspan x="' + x + '" dy="' + (i ? 11 : 0) + '">' + lines[i] + "</tspan>";
+        return t + "</text>";
+      }
+
+      var svg = '<svg viewBox="0 0 ' + VW + " " + VH +
+        '" preserveAspectRatio="xMidYMin meet" width="100%" height="100%">';
+
+      // bandas de risco (mapeamento do próprio motor: <3 safe · 3–6 atenção · 6–8 alerta · ≥8 crítico)
+      var bands = [[0, 3, "--safe"], [3, 6, "--attention"], [6, 8, "--alert"], [8, 11, "--critical"]];
+      bands.forEach(function (b) {
+        var yh = Y(b[1]), yl = Y(b[0]);
+        svg += '<rect x="' + RX + '" y="' + yh.toFixed(1) + '" width="' + RW +
+          '" height="' + (yl - yh).toFixed(1) + '" fill="var(' + b[2] + ')" opacity="0.16"/>';
+      });
+
+      // contorno da barra
+      svg += '<rect x="' + RX + '" y="' + TOP + '" width="' + RW + '" height="' + (BOT - TOP) +
+        '" fill="none" stroke="var(--ink-soft)" stroke-width="1.2"/>';
+
+      // graduações em metro (0..11) + meio-metro
+      for (var m = 0; m <= MAXM; m++) {
+        var yy = Y(m);
+        svg += line(RX - 7, yy, RX, yy, "var(--ink-soft)", 1);
+        if (m < MAXM) { var yh = Y(m + 0.5); svg += line(RX - 4, yh, RX, yh, "var(--ink-soft)", 0.7, ""); }
+        svg += '<text x="' + (RX - 10) + '" y="' + (yy + 3.5).toFixed(1) +
+          '" text-anchor="end" font-size="11" fill="var(--ink)">' + m + "</text>";
+      }
+      // marcas oficiais nomeadas (Defesa Civil)
+      [[3, "obs"], [4, "aten"], [6, "alerta"], [8, "máx"]].forEach(function (n) {
+        var yy = Y(n[0]);
+        svg += line(RX - 7, yy, RX, yy, "var(--ink)", 2);
+        svg += '<text x="' + (RX - 24) + '" y="' + (yy + 3.5).toFixed(1) +
+          '" text-anchor="end" font-size="9.5" fill="var(--ink-soft)">' + n[1] + "</text>";
+      });
+
+      // grupo da água (dinâmico) - desenhado ANTES das referências para que as
+      // marcas fiquem visíveis mesmo quando a água as submerge.
+      svg += '<rect id="regua-water" x="' + RX + '" y="' + BOT + '" width="' + RW +
+        '" height="0" fill="var(--water)" opacity="0.9"/>';
+      svg += '<line id="regua-surf" x1="' + (RX - 2) + '" y1="' + BOT + '" x2="' + (RX + RW + 2) +
+        '" y2="' + BOT + '" stroke="var(--water-deep)" stroke-width="2"/>';
+
+      // linhas de referência + etiquetas à direita (por cima da água)
+      // 7,4 m primeiras vias
+      svg += line(RX, Y(7.4), RX + RW, Y(7.4), "var(--paper)", 1.4, "5 3");
+      svg += tag(X0R, Y(7.4) - 2, ["1ªs vias", "7,4 m"], "var(--ink)");
+      // 9,93 m pico derivado (leader para etiqueta abaixo)
+      svg += line(RX, Y(9.93), RX + RW, Y(9.93), "var(--water-deep)", 1.6, "");
+      svg += line(RX + RW, Y(9.93), X0R - 2, 96, "var(--water-deep)", 0.8, "2 2");
+      svg += tag(X0R, 96, ["pico 9,93 m", "🔶 derivado"], "var(--water-deep)");
+      // 10,19 m cota oficial observada (leader para etiqueta acima)
+      svg += line(RX, Y(10.19), RX + RW, Y(10.19), "var(--critical)", 1.6, "4 2");
+      svg += line(RX + RW, Y(10.19), X0R - 2, 44, "var(--critical)", 0.8, "2 2");
+      svg += tag(X0R, 40, ["oficial", "10,19 m", "observado"], "var(--critical)");
+
+      svg += "</svg>";
+      host.innerHTML = svg;
+
+      var water = document.getElementById("regua-water");
+      var surf = document.getElementById("regua-surf");
+
+      // Define a cota exibida (metros). Reutilizada pela reprodução (2.9) e pelo HAND (2.4).
+      function set(cota) {
+        var yy = Y(Math.max(MINM, Math.min(MAXM, cota)));
+        water.setAttribute("y", yy.toFixed(1));
+        water.setAttribute("height", (BOT - yy).toFixed(1));
+        surf.setAttribute("y1", yy.toFixed(1));
+        surf.setAttribute("y2", yy.toFixed(1));
+        var st = ATG.stageFromLevel(cota);
+        cotaEl.textContent = fmt(cota) + " m";
+        stageEl.textContent = STAGE_PT[st.stage] || st.stage;
+        stageEl.style.background = RISK_COLOR[st.risk] || "var(--seal-todo)";
+      }
+      window.Regua = { set: set, pico: PICO };
+
+      subEl.textContent = "cota do rio · ATG-BLU-06 Prainha";
+
+      // O movimento inicial é orquestrado pelo driver compartilhado (fim do arquivo),
+      // por índice de tempo. window.Regua.set(cota) é o gancho.
+      set(0);
+    })();
+  </script>
+
+  <!-- Grade HAND real (Semana 6), embutida como dados (window.ATG_HAND). -->
+  <script src="assets/hand/hand.js"></script>
+
+  <script>
+    // MAPA HAND (Fase 2.4)
+    // Desenha o terreno por classe de suscetibilidade e a LÂMINA D'ÁGUA onde
+    // HAND < cota (consulta real ao raster por cota). Nós posicionados por lat/lon.
+    (function () {
+      var HAND = window.ATG_HAND, EV = window.ATG_EVENT;
+      var canvas = document.getElementById("hand-canvas");
+      var nodesHost = document.getElementById("hand-nodes");
+      var cotaEl = document.getElementById("mapa-cota");
+      var areaEl = document.getElementById("mapa-area");
+      if (!canvas) return;
+      if (!HAND || !EV) { if (cotaEl) cotaEl.textContent = "sem HAND"; return; }
+
+      var gw = HAND.gw, gh = HAND.gh, ND = HAND.nodata, VS = HAND.vscale;
+      canvas.width = gw; canvas.height = gh;
+      var ctx = canvas.getContext("2d");
+
+      // base64 -> Uint8Array (HAND_m = D[i]/VS ; ND = sem dado)
+      var bin = atob(HAND.data_b64), N = bin.length, D = new Uint8Array(N);
+      for (var i = 0; i < N; i++) D[i] = bin.charCodeAt(i);
+
+      // tinta por classe de suscetibilidade (limiares 5·15·40 m - Semana 6)
+      function classRGB(hm) {
+        if (hm <= 5) return [227, 195, 160];
+        if (hm <= 15) return [231, 212, 179];
+        if (hm <= 40) return [226, 221, 202];
+        return [215, 220, 200];
+      }
+      var OCRE = [154, 107, 47]; // água ocre-barrenta (var(--water))
+      var base = new Uint8ClampedArray(gw * gh * 4);
+      for (var p = 0; p < gw * gh; p++) {
+        var v = D[p];
+        if (v === ND) { base[p * 4 + 3] = 0; continue; }
+        var c = classRGB(v / VS);
+        base[p * 4] = c[0]; base[p * 4 + 1] = c[1]; base[p * 4 + 2] = c[2]; base[p * 4 + 3] = 255;
+      }
+      var img = ctx.createImageData(gw, gh);
+      var CELL = HAND.cell_km2 || 0.0072;
+
+      // ---- grade reamostrada para a vista 2.5D (isométrica) ----
+      var ISO = 60, F2 = Math.max(1, Math.floor(gw / ISO));
+      var isoH = new Float32Array(ISO * ISO), isoV = new Uint8Array(ISO * ISO);
+      for (var ir = 0; ir < ISO; ir++) for (var ic = 0; ic < ISO; ic++) {
+        var sum = 0, cnt = 0;
+        for (var br = 0; br < F2; br++) for (var bc = 0; bc < F2; bc++) {
+          var rr = ir * F2 + br, cc = ic * F2 + bc;
+          if (rr >= gh || cc >= gw) continue;
+          var vv = D[rr * gw + cc];
+          if (vv !== ND) { sum += vv / VS; cnt++; }
+        }
+        var kk = ir * ISO + ic;
+        if (cnt > 0) { isoH[kk] = sum / cnt; isoV[kk] = 1; }
+      }
+      var TW = 4.6, TH = 2.3, ZS = 4.2, OX = 150, OY = 66; // tile/altura/origem
+
+      function classRGBstr(hm) { var c = classRGB(hm); return "rgb(" + c[0] + "," + c[1] + "," + c[2] + ")"; }
+      function diamond(cx, cy, fill) {
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - TH / 2); ctx.lineTo(cx + TW / 2, cy);
+        ctx.lineTo(cx, cy + TH / 2); ctx.lineTo(cx - TW / 2, cy); ctx.closePath();
+        ctx.fillStyle = fill; ctx.fill();
+      }
+      function floodedCount(cota) {
+        var thr = cota * VS, f = 0;
+        for (var q = 0; q < gw * gh; q++) if (D[q] !== ND && D[q] < thr) f++;
+        return f;
+      }
+      function render2D(cota) {
+        var thr = cota * VS, flooded = 0, d = img.data;
+        for (var q = 0; q < gw * gh; q++) {
+          var v = D[q], o = q * 4;
+          if (v !== ND && v < thr) { d[o] = OCRE[0]; d[o+1] = OCRE[1]; d[o+2] = OCRE[2]; d[o+3] = 209; flooded++; }
+          else { d[o] = base[o]; d[o+1] = base[o+1]; d[o+2] = base[o+2]; d[o+3] = base[o+3]; }
+        }
+        ctx.putImageData(img, 0, 0);
+        return flooded;
+      }
+      function renderIso(cota) {
+        ctx.clearRect(0, 0, gw, gh);
+        for (var r = 0; r < ISO; r++) for (var c = 0; c < ISO; c++) {
+          var k = r * ISO + c; if (!isoV[k]) continue;
+          var hand = isoH[k];
+          var bx = OX + (c - r) * TW / 2, by = OY + (c + r) * TH / 2;
+          var depth = cota - hand;
+          if (depth > 0.02) {
+            var dz = Math.min(depth, 10) * ZS, ty = by - dz;
+            ctx.beginPath();                                  // face esquerda-frontal
+            ctx.moveTo(bx - TW/2, by); ctx.lineTo(bx, by + TH/2);
+            ctx.lineTo(bx, ty + TH/2); ctx.lineTo(bx - TW/2, ty); ctx.closePath();
+            ctx.fillStyle = "rgba(120,82,34,0.95)"; ctx.fill();
+            ctx.beginPath();                                  // face direita-frontal
+            ctx.moveTo(bx + TW/2, by); ctx.lineTo(bx, by + TH/2);
+            ctx.lineTo(bx, ty + TH/2); ctx.lineTo(bx + TW/2, ty); ctx.closePath();
+            ctx.fillStyle = "rgba(96,64,26,0.95)"; ctx.fill();
+            var lg = Math.max(0, 1 - Math.min(depth, 10) / 14); // topo mais claro se raso
+            diamond(bx, ty, "rgb(" + Math.round(150 + 40*lg) + "," + Math.round(107 + 28*lg) + "," + Math.round(47 + 28*lg) + ")");
+          } else {
+            diamond(bx, by, classRGBstr(hand));
+          }
+        }
+      }
+
+      var mode = "2d", lastCota = 0;
+      function set(cota) {
+        lastCota = cota;
+        var f = (mode === "2d") ? render2D(cota) : (renderIso(cota), floodedCount(cota));
+        if (cotaEl) cotaEl.textContent = cota.toFixed(2).replace(".", ",") + " m";
+        if (areaEl) areaEl.textContent = (f * CELL).toFixed(1).replace(".", ",") + " km²";
+      }
+      window.Mapa = { set: set };
+
+      // nós reais (de event.js) posicionados por lat/lon dentro do recorte
+      var B = HAND.bounds;
+      EV.nodes.forEach(function (nd) {
+        var x = (nd.longitude - B.lonW) / (B.lonE - B.lonW);
+        var y = (B.latN - nd.latitude) / (B.latN - B.latS);
+        if (x < 0 || x > 1 || y < 0 || y > 1) return;
+        var el = document.createElement("div");
+        el.className = "hand-node" + (nd.sensor_type === "river_level" ? " river" : "");
+        el.style.left = (x * 100).toFixed(1) + "%";
+        el.style.top = (y * 100).toFixed(1) + "%";
+        var code = (nd.node_name.match(/BLU-(\d+)/) || [])[1] || "";
+        el.innerHTML = '<span class="dot"></span><span class="lbl">' + code + "</span>";
+        nodesHost.appendChild(el);
+      });
+
+      // alternância 2D / 2.5D (a vista 2.5D é o relevo da lâmina do HAND - 🔶)
+      var modeBtn = document.getElementById("map-mode");
+      var noteEl = document.getElementById("map-note");
+      var NOTE_2D = noteEl ? noteEl.innerHTML : "";
+      var NOTE_ISO = "Vista <b>2.5D</b>: o relevo é a <b>profundidade</b> da lâmina " +
+        "(cota − HAND), regional e derivada do HAND (🔶) - <b>não</b> é escala de " +
+        "rua/edificação (ver roadmap 3D hidrodinâmico).";
+      if (modeBtn) modeBtn.addEventListener("click", function () {
+        mode = (mode === "2d") ? "iso" : "2d";
+        modeBtn.textContent = (mode === "iso") ? "🗺️ 2D" : "🧊 2.5D";
+        modeBtn.classList.toggle("on", mode === "iso");
+        if (nodesHost) nodesHost.style.display = (mode === "iso") ? "none" : "";
+        if (noteEl) noteEl.innerHTML = (mode === "iso") ? NOTE_ISO : NOTE_2D;
+        set(lastCota);
+      });
+
+      set(0); // estado inicial; o driver anima
+    })();
+  </script>
+
+  <script>
+    // HIDROGRAMA + CHUVA (Fase 2.5)
+    // Linha da cota do rio (GloFAS) com a escada da Defesa Civil, barras de chuva
+    // média (ERA5-Land, 4 estações) e marcador temporal deslizante (arrastável).
+    (function () {
+      var S = window.ATG_STATE;
+      var host = document.getElementById("hidro");
+      var readEl = document.getElementById("hidro-read");
+      if (!host || !S) { if (host) host.textContent = "sem série temporal"; return; }
+      var steps = S.steps, n = S.n;
+
+      var VW = 640, VH = 250, L = 34, Rr = 30, T = 12;
+      var splitY = 150, rainTop = 164, rainBot = 226;   // cota: T..splitY · chuva: rainTop..rainBot
+      var COTA_TOP = 11;
+      function X(i) { return L + i / (n - 1) * (VW - L - Rr); }
+      function YC(m) { return splitY - (m / COTA_TOP) * (splitY - T); }
+      function Yr(v) { return rainBot - (v / (S.rainMax || 1)) * (rainBot - rainTop); }
+      function fmt2(x) { return x.toFixed(2).replace(".", ","); }
+
+      var svg = '<svg viewBox="0 0 ' + VW + ' ' + VH + '" preserveAspectRatio="none" width="100%" height="100%">';
+
+      // faixas de risco (escada Defesa Civil) na área da cota
+      var zones = [[0, 3, "--safe"], [3, 6, "--attention"], [6, 8, "--alert"], [8, COTA_TOP, "--critical"]];
+      zones.forEach(function (z) {
+        var yt = YC(z[1]), yb = YC(z[0]);
+        svg += '<rect x="' + L + '" y="' + yt.toFixed(1) + '" width="' + (VW - L - Rr) +
+          '" height="' + (yb - yt).toFixed(1) + '" fill="var(' + z[2] + ')" opacity="0.10"/>';
+      });
+      // linhas de limiar 3·4·6·8 + rótulos
+      [3, 4, 6, 8].forEach(function (m) {
+        var y = YC(m);
+        svg += '<line x1="' + L + '" y1="' + y.toFixed(1) + '" x2="' + (VW - Rr) + '" y2="' + y.toFixed(1) +
+          '" stroke="var(--ink-soft)" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.7"/>';
+        svg += '<text x="' + (L - 4) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end" font-size="9" fill="var(--ink-soft)">' + m + '</text>';
+      });
+      svg += '<text x="' + (L - 4) + '" y="' + (YC(0) + 3).toFixed(1) + '" text-anchor="end" font-size="9" fill="var(--ink-soft)">0</text>';
+      // linha do pico derivado 9,93
+      var yp = YC(9.928);
+      svg += '<line x1="' + L + '" y1="' + yp.toFixed(1) + '" x2="' + (VW - Rr) + '" y2="' + yp.toFixed(1) +
+        '" stroke="var(--water-deep)" stroke-width="0.8" stroke-dasharray="1 2"/>';
+
+      // barras de chuva (média das 4 estações)
+      var bw = (VW - L - Rr) / n;
+      var bars = "";
+      for (var i = 0; i < n; i++) {
+        var rv = steps[i].rain; if (rv <= 0) continue;
+        var yt2 = Yr(rv);
+        bars += '<rect x="' + (X(i) - bw / 2).toFixed(2) + '" y="' + yt2.toFixed(1) +
+          '" width="' + Math.max(0.6, bw * 0.9).toFixed(2) + '" height="' + (rainBot - yt2).toFixed(1) +
+          '" fill="#4a7fb0" opacity="0.7"/>';
+      }
+      svg += bars;
+      svg += '<text x="' + (VW - Rr + 3) + '" y="' + (rainTop + 8) + '" font-size="8.5" fill="#4a7fb0">mm/h</text>';
+      svg += '<text x="' + (VW - Rr + 3) + '" y="' + (rainTop + 18) + '" font-size="8.5" fill="#4a7fb0">' + fmt2(S.rainMax) + '</text>';
+
+      // linha da cota (só onde há dado do rio) + área sob a curva
+      var dPath = "", area = "", started = false, firstX = 0, lastX = 0;
+      for (var j = 0; j < n; j++) {
+        if (!steps[j].hasCota) continue;
+        var px = X(j), py = YC(steps[j].cota);
+        if (!started) { dPath = "M" + px.toFixed(1) + " " + py.toFixed(1); firstX = px; started = true; }
+        else dPath += " L" + px.toFixed(1) + " " + py.toFixed(1);
+        lastX = px;
+      }
+      area = "M" + firstX.toFixed(1) + " " + YC(0).toFixed(1) + " " + dPath.slice(1) + " L" + lastX.toFixed(1) + " " + YC(0).toFixed(1) + " Z";
+      svg += '<path d="' + area + '" fill="var(--water)" opacity="0.18"/>';
+      svg += '<path d="' + dPath + '" fill="none" stroke="var(--water-deep)" stroke-width="1.6"/>';
+
+      // eixo do tempo: ticks nos dias 00:00
+      for (var k = 0; k < n; k++) {
+        if (steps[k].ts.slice(11, 16) !== "00:00") continue;
+        var day = steps[k].ts.slice(8, 10);
+        if (["04", "06", "08", "10", "12", "14"].indexOf(day) < 0) continue;
+        var xk = X(k);
+        svg += '<line x1="' + xk.toFixed(1) + '" y1="' + rainBot + '" x2="' + xk.toFixed(1) + '" y2="' + (rainBot + 3) + '" stroke="var(--ink-soft)" stroke-width="0.6"/>';
+        svg += '<text x="' + xk.toFixed(1) + '" y="' + (VH - 4) + '" text-anchor="middle" font-size="9" fill="var(--ink-soft)">' + day + '/10</text>';
+      }
+
+      // marcador (dinâmico)
+      svg += '<line id="hidro-mark" x1="0" y1="' + T + '" x2="0" y2="' + rainBot + '" stroke="var(--ink)" stroke-width="1" opacity="0.85"/>';
+      svg += '<circle id="hidro-dot" cx="0" cy="0" r="3.2" fill="var(--water-deep)" stroke="#fff" stroke-width="1.2"/>';
+      svg += "</svg>";
+      host.innerHTML = svg;
+
+      var mark = document.getElementById("hidro-mark");
+      var dot = document.getElementById("hidro-dot");
+      var svgEl = host.querySelector("svg");
+
+      function ptFor(i) {
+        var a = Math.floor(i), b = Math.min(n - 1, a + 1), f = i - a;
+        var ca = steps[a].cota, cb = steps[b].cota;
+        return { x: X(i), cota: ca + (cb - ca) * f };
+      }
+      function setIndex(i) {
+        i = Math.max(0, Math.min(n - 1, i));
+        var pt = ptFor(i), st = steps[Math.round(i)];
+        mark.setAttribute("x1", pt.x.toFixed(1)); mark.setAttribute("x2", pt.x.toFixed(1));
+        dot.setAttribute("cx", pt.x.toFixed(1)); dot.setAttribute("cy", YC(pt.cota).toFixed(1));
+        if (readEl) {
+          var d = st.ts.slice(8, 10) + "/" + st.ts.slice(5, 7) + " " + st.ts.slice(11, 16) + "Z";
+          var rate = st.rate == null ? "-" : (st.rate >= 0 ? "+" : "") + fmt2(st.rate) + " m/h";
+          readEl.innerHTML = d + " · cota <b>" + fmt2(pt.cota) + " m</b> · taxa " + rate +
+            " · chuva <b>" + fmt2(st.rain) + "</b> mm/h";
+        }
+      }
+      window.Hidro = { setIndex: setIndex };
+
+      // arraste/click para navegar no tempo (marcador deslizante)
+      function seek(clientX) {
+        var r = svgEl.getBoundingClientRect();
+        var frac = (clientX - r.left) / r.width;
+        var i = (frac * VW - L) / (VW - L - Rr) * (n - 1);
+        if (window.ATGView) {
+          if (window.ATGView.pause) window.ATGView.pause();  // arrastar pausa a reprodução
+          window.ATGView.setIndex(Math.max(0, Math.min(n - 1, i)));
+        } else setIndex(i);
+      }
+      var dragging = false;
+      host.addEventListener("pointerdown", function (e) { dragging = true; host.setPointerCapture(e.pointerId); seek(e.clientX); });
+      host.addEventListener("pointermove", function (e) { if (dragging) seek(e.clientX); });
+      host.addEventListener("pointerup", function () { dragging = false; });
+      host.addEventListener("pointercancel", function () { dragging = false; });
+
+      setIndex(0);
+    })();
+  </script>
+
+  <script>
+    // QUADRO ATG-C1 (Fase 2.6)
+    // Monta AO VIVO o quadro de 23 bytes do payload do rio no tempo corrente
+    // (ATG.toC1Bin) e o DECODIFICA byte a byte (layout <BIIiihhBB), provando o
+    // round-trip. Contraste 669 B (JSON) -> 23 B (BIN) sempre visível no topo.
+    (function () {
+      var EV = window.ATG_EVENT, S = window.ATG_STATE;
+      var hexEl = document.getElementById("quadro-hex");
+      var tblEl = document.getElementById("quadro-table");
+      var tsEl = document.getElementById("quadro-ts");
+      if (!hexEl || !EV || !S || typeof window.ATG === "undefined") return;
+
+      var riverIdx = EV.nodes.findIndex(function (n) { return n.sensor_type === "river_level"; });
+      var nd = EV.nodes[riverIdx];
+      var byTs = {};
+      EV.records.forEach(function (r) {
+        if (r.n === riverIdx) byTs[r.t] = {
+          node_num: nd.node_num, timestamp: r.t, latitude: nd.latitude, longitude: nd.longitude,
+          sensor_type: nd.sensor_type, sensor_value: r.v, rate_of_change: r.r,
+          risk_level: r.k, battery_pct: r.b,
+        };
+      });
+      var last = null;
+      var payloadByStep = S.steps.map(function (s) { if (byTs[s.ts]) last = byTs[s.ts]; return last; });
+
+      // campos do layout <BIIiihhBB (offset, nº de bytes, nome, cor)
+      var FIELDS = [
+        { off: 0, len: 1, nm: "versão · sensor", c: "#b0743a" },
+        { off: 1, len: 4, nm: "node_num", c: "#4a7fb0" },
+        { off: 5, len: 4, nm: "timestamp", c: "#6a8c5a" },
+        { off: 9, len: 4, nm: "latitude ×1e6", c: "#8a6ea8" },
+        { off: 13, len: 4, nm: "longitude ×1e6", c: "#a86e8a" },
+        { off: 17, len: 2, nm: "valor ×100", c: "#b3241f" },
+        { off: 19, len: 2, nm: "taxa ×1000", c: "#d67a1e" },
+        { off: 21, len: 1, nm: "risco", c: "#2f7d3b" },
+        { off: 22, len: 1, nm: "bateria", c: "#6b6455" },
+      ];
+      var SENSOR_NAME = {}; for (var k in ATG.SENSOR_CODE) SENSOR_NAME[ATG.SENSOR_CODE[k]] = k;
+      function c2(x) { return x.toFixed(2).replace(".", ","); }
+      function c3(x) { return x.toFixed(3).replace(".", ","); }
+      function c6(x) { return x.toFixed(6).replace(".", ","); }
+      function tsFmt(ep) { var d = new Date(ep * 1000);
+        function p(n){return (n<10?"0":"")+n;}
+        return p(d.getUTCDate()) + "/" + p(d.getUTCMonth()+1) + " " + p(d.getUTCHours()) + ":" + p(d.getUTCMinutes()) + "Z"; }
+
+      function decodeVals(u8, sensorType) {
+        var dv = new DataView(u8.buffer);
+        var b0 = dv.getUint8(0), sc = b0 & 0x0f, ver = b0 >> 4;
+        var scale = ATG.SCALE[sensorType] || 100;
+        return {
+          0: "v" + ver + " · " + (SENSOR_NAME[sc] || sc),
+          1: String(dv.getUint32(1, true)),
+          5: (function () { var ep = dv.getUint32(5, true); return ep + " → " + tsFmt(ep); })(),
+          9: c6(dv.getInt32(9, true) / 1e6),
+          13: c6(dv.getInt32(13, true) / 1e6),
+          17: (function () { var v = dv.getInt16(17, true); return v + " → " + c2(v / scale) + " m"; })(),
+          19: (function () { var v = dv.getInt16(19, true); return (v >= 0 ? "+" : "") + v + " → " + (v >= 0 ? "+" : "") + c3(v / 1000) + " m/h"; })(),
+          21: (function () { var v = dv.getUint8(21); return v + " → " + (ATG.RISK_ORDER[v] || v); })(),
+          22: dv.getUint8(22) + " %",
+        };
+      }
+
+      function setIndex(i) {
+        var p = payloadByStep[Math.max(0, Math.min(S.n - 1, Math.round(i)))];
+        if (!p) return;
+        var u8 = ATG.toC1Bin(p), hex = ATG.toHex(u8), vals = decodeVals(u8, p.sensor_type);
+
+        // hex agrupado por campo (colorido)
+        var h = "";
+        FIELDS.forEach(function (f) {
+          h += '<span class="qgroup" style="background:' + f.c + '22">';
+          for (var b = 0; b < f.len; b++)
+            h += '<span class="qbyte">' + hex.substr((f.off + b) * 2, 2) + "</span>";
+          h += "</span>";
+        });
+        hexEl.innerHTML = h;
+
+        // tabela campo a campo
+        var t = "";
+        FIELDS.forEach(function (f) {
+          var bytes = hex.substr(f.off * 2, f.len * 2).replace(/(..)/g, "$1 ").trim();
+          t += '<tr><td class="off"><span class="qsw" style="background:' + f.c + '"></span>' +
+            f.off + (f.len > 1 ? "–" + (f.off + f.len - 1) : "") + '</td>' +
+            '<td class="hex">' + bytes + "</td>" +
+            '<td class="nm">' + f.nm + "</td>" +
+            '<td class="val">' + vals[f.off] + "</td></tr>";
+        });
+        tblEl.innerHTML = t;
+        if (tsEl) tsEl.textContent = "23 B · " + hex;
+      }
+      window.Quadro = { setIndex: setIndex };
+      setIndex(0);
+    })();
+  </script>
+
+  <script>
+    // MÉTRICAS DA MALHA (Fase 2.7, compactas) - data-driven de metrics.json (§2).
+    (function () {
+      var M = window.ATG_METRICS;
+      if (!M) return;
+      var mesh = M.mesh, star = M.star_baseline_hop_limit_1, lora = M.lora;
+      function c(x, d) { return Number(x).toFixed(d).replace(".", ","); }
+      function set(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; }
+      set("m-pdr", c(mesh.pdr_pct, 1) + "%");
+      set("m-star", c(star.pdr_pct, 2) + "%");
+      set("m-vila", c(star.pdr_by_node["ATG-BLU-01 Vila Itoupava"], 1) + "%");
+      set("m-small", "saltos " + c(mesh.mean_hops, 2) + " · " + c(mesh.mean_tx_per_packet, 2) +
+        " tx/pac · RSSI " + c(mesh.mean_rssi_dbm, 1) + " dBm · SNR " + c(mesh.mean_snr_db, 1) +
+        " dB · lat p50 " + c(mesh.median_latency_s, 3) + " s · ToA " + c(lora.time_on_air_s, 4) + " s");
+    })();
+  </script>
+
+  <script>
+    // DOIS CANAIS + CORTE DA TORRE (Fases 2.8 / 3.1–3.3)
+    // Malha (esquerda): entrega salto a salto, sempre. Internet (direita): entrega
+    // até a "queda da torre" (🔶 cenário simulado), quando CONGELA. As mensagens
+    // são REAIS e verbatim (alerts.jsonl, nó do rio). Contadores por canal ao vivo.
+    (function () {
+      var AL = window.ATG_ALERTS, S = window.ATG_STATE;
+      var mesh = { card: "cel-card", lvl: "cel-level", msg: "cel-msg", time: "cel-time" };
+      var net = { card: "net-card", lvl: "net-level", msg: "net-msg", time: "net-time" };
+      [mesh, net].forEach(function (c) { for (var k in c) c[k] = document.getElementById(c[k]); });
+      var meshCountEl = document.getElementById("mesh-count");
+      var netCountEl = document.getElementById("net-count");
+      var netLostEl = document.getElementById("net-lost");
+      var netFrozen = document.getElementById("net-frozen");
+      var chNet = document.getElementById("ch-net");
+      var towerBtn = document.getElementById("tower-btn");
+      if (!mesh.card || !net.card || !AL || !S) return;
+
+      var river = AL.filter(function (a) { return a.node_name.indexOf("BLU-06") >= 0; })
+        .sort(function (a, b) { return a.timestamp < b.timestamp ? -1 : 1; });
+      var LEVEL_PT = { safe: "Sem alerta", attention: "Atenção", alert: "Alerta", critical: "Alerta máximo" };
+      function tsFmt(iso) {
+        var m = iso.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+        return m ? m[3] + "/" + m[2] + " " + m[4] + ":" + m[5] + "Z" : iso;
+      }
+      function alertAt(ts) { var cur = null;
+        for (var k = 0; k < river.length; k++) { if (river[k].timestamp <= ts) cur = river[k]; else break; }
+        return cur; }
+      function countAt(ts) { var n = 0;
+        for (var k = 0; k < river.length; k++) if (river[k].timestamp <= ts) n++;
+        return n; }
+      function renderCard(c, cur) {
+        c.card.className = "cel-card " + (cur ? cur.to : "safe");
+        if (!cur) { c.lvl.textContent = "Sem alerta"; c.msg.textContent = "Nenhum alerta ativo - monitoramento."; c.time.textContent = ""; }
+        else { c.lvl.textContent = LEVEL_PT[cur.to] || cur.to; c.msg.textContent = cur.alert_message; // VERBATIM
+               c.time.textContent = "recebido " + tsFmt(cur.timestamp) + " · " + cur.chars + " car."; }
+      }
+
+      var towerCut = false, cutIndex = 0, curIndex = 0;
+      function render() {
+        var curTs = S.steps[curIndex].ts;
+        renderCard(mesh, alertAt(curTs));
+        var meshN = countAt(curTs);
+        meshCountEl.textContent = meshN;
+
+        var effIndex = towerCut ? Math.min(curIndex, cutIndex) : curIndex;
+        var effTs = S.steps[effIndex].ts;
+        renderCard(net, alertAt(effTs));
+        var netN = countAt(effTs);
+        netCountEl.textContent = netN;
+
+        var frozen = towerCut && curIndex > cutIndex;
+        netFrozen.hidden = !frozen;
+        chNet.classList.toggle("cut", towerCut);
+        netLostEl.textContent = (meshN - netN) > 0 ? "· " + (meshN - netN) + " não entregue(s)" : "";
+      }
+      function setIndex(i) { curIndex = Math.max(0, Math.min(S.n - 1, Math.round(i))); render(); }
+      window.Celular = { setIndex: setIndex };
+
+      function updateBtn() {
+        towerBtn.textContent = towerCut ? "🗼 Restaurar torre" : "⚡ Queda da torre";
+        towerBtn.classList.toggle("cut", towerCut);
+        towerBtn.setAttribute("aria-pressed", towerCut ? "true" : "false");
+      }
+      window.Tower = {
+        toggle: function () { if (!towerCut) { towerCut = true; cutIndex = curIndex; } else { towerCut = false; } updateBtn(); render(); },
+        reset: function () { towerCut = false; updateBtn(); render(); },
+        get cut() { return towerCut; },
+      };
+      towerBtn.addEventListener("click", window.Tower.toggle);
+      updateBtn();
+      setIndex(0);
+    })();
+  </script>
+
+  <script>
+    // DRIVER DE TEMPO + REPRODUÇÃO (Fases 2.5 / 2.9)
+    // Dirige régua, mapa, hidrograma, quadro, malha e celular por índice de tempo,
+    // e reproduz o evento (play/pause · 1×/8×/60×). window.ATGView é o gancho.
+    (function () {
+      var S = window.ATG_STATE;
+      if (!S) return;
+      var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      var idx = 0, playing = false, speed = 60, raf = null, lastT = null;
+      var K = 0.014; // passos/s por 1× → 60× faz 0→pico (120 passos) em ~2,4 min (< 3 min)
+
+      function cotaAt(i) {
+        var a = Math.floor(i), b = Math.min(S.n - 1, a + 1), f = i - a;
+        var ca = S.steps[a].cota, cb = S.steps[b].cota;
+        return ca + (cb - ca) * f;
+      }
+      function apply(i) {
+        i = Math.max(0, Math.min(S.n - 1, i));
+        idx = i;
+        var cota = cotaAt(i);
+        if (window.Regua) window.Regua.set(cota);
+        if (window.Mapa) window.Mapa.set(cota);
+        if (window.Hidro) window.Hidro.setIndex(i);
+        if (window.Quadro) window.Quadro.setIndex(i);
+        if (window.Malha) window.Malha.setIndex(i);
+        if (window.Celular) window.Celular.setIndex(i);
+        window.ATGView.current = i;
+      }
+      function tick(now) {
+        if (!playing) return;
+        if (lastT === null) lastT = now;
+        var dt = (now - lastT) / 1000; lastT = now;
+        var next = idx + dt * speed * K;
+        if (next >= S.n - 1) { apply(S.n - 1); pause(); return; }
+        apply(next);
+        raf = requestAnimationFrame(tick);
+      }
+      function notify() { if (window.ATGView.onStateChange) window.ATGView.onStateChange(playing, speed); }
+      function play() {
+        if (playing) return;
+        if (idx >= S.n - 1) apply(0);
+        playing = true; lastT = null; raf = requestAnimationFrame(tick); notify();
+      }
+      function pause() { if (!playing) return; playing = false; if (raf) cancelAnimationFrame(raf); notify(); }
+      function toggle() { playing ? pause() : play(); }
+      function setSpeed(m) { speed = m; notify(); }
+
+      window.ATGView = {
+        setIndex: apply, seek: function (i) { pause(); apply(i); },
+        play: play, pause: pause, toggle: toggle, setSpeed: setSpeed,
+        get playing() { return playing; }, get speed() { return speed; },
+        current: 0, n: S.n, picoIndex: S.picoIndex,
+      };
+
+      if (reduce) { apply(S.picoIndex); return; }
+      // Intro: avanço rápido (eased) do início até o pico - sobe cota, cresce a
+      // lâmina, desliza o marcador e traça a chuva, tudo junto. Depois: controles.
+      var t0 = null, dur = 2200, target = S.picoIndex;
+      requestAnimationFrame(function loop(now) {
+        if (t0 === null) t0 = now;
+        var pr = Math.min((now - t0) / dur, 1);
+        apply(target * (1 - Math.pow(1 - pr, 3)));   // ease-out cubic
+        if (pr < 1) requestAnimationFrame(loop);
+      });
+    })();
+  </script>
+
+  <script>
+    // CONTROLES (Fase 2.9) - play/pause · 1×/8×/60× · saltar 04/08/09 · reset.
+    (function () {
+      var V = window.ATGView, S = window.ATG_STATE;
+      if (!V || !S) return;
+      var playBtn = document.getElementById("c-play");
+      var resetBtn = document.getElementById("c-reset");
+      var speedBtns = [].slice.call(document.querySelectorAll("#c-speed .sp"));
+      var jumpBtns = [].slice.call(document.querySelectorAll("[data-jump]"));
+
+      function idxForTs(prefix) {
+        for (var i = 0; i < S.n; i++) if (S.steps[i].ts.indexOf(prefix) === 0) return i;
+        return 0;
+      }
+      var JUMP = { inicio: 0, subida: idxForTs("2023-10-08T00:00"), pico: S.picoIndex };
+
+      playBtn.addEventListener("click", function () { V.toggle(); });
+      resetBtn.addEventListener("click", function () { if (window.Tower) window.Tower.reset(); V.seek(0); });
+      speedBtns.forEach(function (b) {
+        b.addEventListener("click", function () { V.setSpeed(+b.getAttribute("data-sp")); });
+      });
+      jumpBtns.forEach(function (b) {
+        b.addEventListener("click", function () { V.seek(JUMP[b.getAttribute("data-jump")]); });
+      });
+
+      V.onStateChange = function (playing, speed) {
+        playBtn.textContent = playing ? "‖" : "▶";
+        playBtn.classList.toggle("playing", playing);
+        playBtn.setAttribute("aria-label", playing ? "pausar" : "reproduzir");
+        speedBtns.forEach(function (b) {
+          b.classList.toggle("active", +b.getAttribute("data-sp") === speed);
+        });
+      };
+      V.onStateChange(V.playing, V.speed);
+    })();
+  </script>
+
+  <script>
+    // LEGENDA DE HONESTIDADE + CONTAGEM (Fase 2.10)
+    // Inventário explícito e auditável dos blocos do pipeline exibidos na tela,
+    // cada um com seu selo. A contagem por categoria vem daqui (fonte única).
+    (function () {
+      var INV = [
+        // ✅ real / implementado
+        { s: "real", t: "Codec ATG-C1 - 23 bytes (paridade JS↔Python)" },
+        { s: "real", t: "Motor de risco - escada Defesa Civil + taxa" },
+        { s: "real", t: "Régua fluviométrica" },
+        { s: "real", t: "Raster HAND - Semana 6 (16,75% alta susc.)" },
+        { s: "real", t: "Cota do rio - hidrograma (GloFAS observado)" },
+        { s: "real", t: "Chuva - barras (ERA5-Land, 4 estações)" },
+        { s: "real", t: "Quadro ATG-C1 ao vivo (669 B → 23 B)" },
+        { s: "real", t: "Malha Meshtastic - métricas reais (metrics.json)" },
+        { s: "real", t: "Mensagem ao morador - verbatim (alerts.jsonl)" },
+        // 🔶 simulado / aproximação declarada
+        { s: "sim", t: "Curva-chave vazão→cota - aproximação (não oficial)" },
+        { s: "sim", t: "Lâmina cota→inundação - modelo simplificado sobre o HAND" },
+        { s: "sim", t: "Corte da torre - cenário simulado (falhas de out/2023)" },
+        // ⬜ integração futura (não implementado)
+        { s: "todo", t: "Hardware físico - placas ESP32 / rádio real" },
+        { s: "todo", t: "Telemetria AlertaBlu - 15 min (alerta antecipatório)" },
+        { s: "todo", t: "Nowcast U-RNN (Semana 7): existe, não integrado ao alerta" },
+      ];
+      var cnt = { real: 0, sim: 0, todo: 0 }, list = { real: [], sim: [], todo: [] };
+      INV.forEach(function (b) { cnt[b.s]++; list[b.s].push("• " + b.t); });
+
+      function fill(id, emoji, label, key) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.innerHTML = emoji + " " + label + " · <b>" + cnt[key] + "</b>";
+        el.title = label + " (" + cnt[key] + "):\n" + list[key].join("\n");
+      }
+      fill("lg-real", "✅", "dado real / implementado", "real");
+      fill("lg-sim", "🔶", "simulado / aproximação declarada", "sim");
+      fill("lg-todo", "⬜", "integração futura", "todo");
+      var tot = document.getElementById("lg-tot");
+      if (tot) tot.innerHTML = "<b>" + INV.length + "</b> blocos rotulados · passe o mouse para a lista";
+    })();
+  </script>
+
+  <script>
+    // VERIFICAR PARIDADE (Fase 2.11)
+    // Ao vivo, no navegador: reconstrói os 1.297 payloads reais, roda o codec JS
+    // (23 bytes) e o motor de risco, e compara o SHA-256 dos 1.297 quadros contra
+    // a referência PYTHON (parity_ref.py). Prova que a tela É o sistema.
+    (function () {
+      var EV = window.ATG_EVENT, REF = window.ATG_PARITY, M = window.ATG_METRICS;
+      var btn = document.getElementById("parity-btn");
+      var out = document.getElementById("parity-result");
+      if (!btn || !EV || !REF || typeof window.ATG === "undefined") {
+        if (btn) { btn.disabled = true; btn.textContent = "paridade indisponível"; }
+        return;
+      }
+      var th = M.data.rain_thresholds;
+
+      async function sha256hex(str) {
+        var buf = new TextEncoder().encode(str);
+        var dig = await crypto.subtle.digest("SHA-256", buf);
+        return Array.from(new Uint8Array(dig)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+      }
+
+      btn.addEventListener("click", async function () {
+        btn.disabled = true;
+        out.className = "parity-result";
+        out.textContent = "recomputando 1.297 payloads no navegador…";
+        // reconstrói na ordem dos records (= ordem do payloads.jsonl / da referência)
+        var concat = "", riskOK = 0, n = EV.records.length;
+        for (var i = 0; i < n; i++) {
+          var r = EV.records[i], nd = EV.nodes[r.n];
+          var p = { node_num: nd.node_num, timestamp: r.t, latitude: nd.latitude, longitude: nd.longitude,
+                    sensor_type: nd.sensor_type, sensor_value: r.v, rate_of_change: r.r,
+                    accum_24h_mm: r.a, risk_level: r.k, battery_pct: r.b };
+          concat += ATG.toHex(ATG.toC1Bin(p));
+          if (ATG.assess(p, th).risk_level === r.k) riskOK++;
+        }
+        var jsSha;
+        try { jsSha = await sha256hex(concat); }
+        catch (e) { out.className = "parity-result bad"; out.textContent = "erro de hash: " + e.message; btn.disabled = false; return; }
+
+        var bytesOK = jsSha === REF.bytes_sha256;
+        if (bytesOK) {
+          out.className = "parity-result ok";
+          out.innerHTML = "bytes: <b>" + n + "/" + n + " idênticos</b> (JS ↔ Python · SHA-256 <code>" +
+            jsSha.slice(0, 12) + "…</code>) · risco: " + riskOK + "/" + n +
+            (riskOK < n ? " (1 empate de arredondamento, §1)" : "");
+        } else {
+          out.className = "parity-result bad";
+          out.innerHTML = "DIVERGÊNCIA nos bytes - JS <code>" + jsSha.slice(0, 12) +
+            "…</code> ≠ Python <code>" + REF.bytes_sha256.slice(0, 12) + "…</code>";
+        }
+        btn.disabled = false;
+      });
+    })();
+  </script>
+</body>
+</html>
