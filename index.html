@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ATG · Blumenau · 04–14 out 2023</title>
+  <title>ATG · Blumenau · 04-14 out 2023</title>
 
   <!--
     Americas TechGuard - maquete (Fase 2). Painel de instrumento hidrológico.
     Regras invioláveis: abre por file:// com Wi-Fi desligado (sem CDN, sem npm,
     sem build, sem chamada de rede). Todo número exibido vem de data/ ou dos
     Fatos Verificados do plano. Tudo aqui é ESTRUTURA (2.1); os painéis chegam
-    nas tarefas 2.3–2.11.
+    nas tarefas 2.3-2.11.
   -->
 
   <style>
@@ -341,7 +341,7 @@
 
     <!-- BARRA SUPERIOR - controles reais em 2.9 -->
     <header class="topbar">
-      <div class="title">ATG · Blumenau <small>· 04–14 out 2023</small></div>
+      <div class="title">ATG · Blumenau <small>· 04-14 out 2023</small></div>
       <div class="controls" id="controls">
         <button id="c-play" class="cbtn play" title="reproduzir / pausar" aria-label="reproduzir">▶</button>
         <span class="cgroup" id="c-speed">
@@ -404,8 +404,8 @@
             </div>
             <div class="ml-classes">
               <div><i style="background:#e3c3a0"></i> Alta susceptibilidade (HAND ≤ 5 m)</div>
-              <div><i style="background:#e7d4b3"></i> Média (5–15 m)</div>
-              <div><i style="background:#e2ddca"></i> Baixa (15–40 m)</div>
+              <div><i style="background:#e7d4b3"></i> Média (5-15 m)</div>
+              <div><i style="background:#e2ddca"></i> Baixa (15-40 m)</div>
               <div><i style="background:#d7dcc8"></i> Muito baixa (&gt; 40 m)</div>
               <div><i style="background:var(--water)"></i> Lâmina d'água (HAND &lt; cota)</div>
             </div>
@@ -528,7 +528,7 @@
       }
 
       // Payload do pico - Fatos Verificados §2 "Pico do evento":
-      //   node_num 2808872966 · 2023-10-09T00:00:00Z · lat −26,918700 · lon −49,066500
+      //   node_num 2808872966 · 2023-10-09T00:00:00Z · lat -26,918700 · lon -49,066500
       //   cota derivada 9,928 m (×100 = 993) · taxa +0,009 m/h (×1000 = 9)
       //   risco critical · bateria 78 %
       var pico = {
@@ -673,7 +673,7 @@
       var svg = '<svg viewBox="0 0 ' + VW + " " + VH +
         '" preserveAspectRatio="xMidYMin meet" width="100%" height="100%">';
 
-      // bandas de risco (mapeamento do próprio motor: <3 safe · 3–6 atenção · 6–8 alerta · ≥8 crítico)
+      // bandas de risco (mapeamento do próprio motor: <3 safe · 3-6 atenção · 6-8 alerta · ≥8 crítico)
       var bands = [[0, 3, "--safe"], [3, 6, "--attention"], [6, 8, "--alert"], [8, 11, "--critical"]];
       bands.forEach(function (b) {
         var yh = Y(b[1]), yl = Y(b[0]);
@@ -883,7 +883,7 @@
       var noteEl = document.getElementById("map-note");
       var NOTE_2D = noteEl ? noteEl.innerHTML : "";
       var NOTE_ISO = "Vista <b>2.5D</b>: o relevo é a <b>profundidade</b> da lâmina " +
-        "(cota − HAND), regional e derivada do HAND (🔶) - <b>não</b> é escala de " +
+        "(cota - HAND), regional e derivada do HAND (🔶) - <b>não</b> é escala de " +
         "rua/edificação (ver roadmap 3D hidrodinâmico).";
       if (modeBtn) modeBtn.addEventListener("click", function () {
         mode = (mode === "2d") ? "iso" : "2d";
@@ -1107,7 +1107,7 @@
         FIELDS.forEach(function (f) {
           var bytes = hex.substr(f.off * 2, f.len * 2).replace(/(..)/g, "$1 ").trim();
           t += '<tr><td class="off"><span class="qsw" style="background:' + f.c + '"></span>' +
-            f.off + (f.len > 1 ? "–" + (f.off + f.len - 1) : "") + '</td>' +
+            f.off + (f.len > 1 ? "-" + (f.off + f.len - 1) : "") + '</td>' +
             '<td class="hex">' + bytes + "</td>" +
             '<td class="nm">' + f.nm + "</td>" +
             '<td class="val">' + vals[f.off] + "</td></tr>";
@@ -1138,7 +1138,7 @@
   </script>
 
   <script>
-    // DOIS CANAIS + CORTE DA TORRE (Fases 2.8 / 3.1–3.3)
+    // DOIS CANAIS + CORTE DA TORRE (Fases 2.8 / 3.1-3.3)
     // Malha (esquerda): entrega salto a salto, sempre. Internet (direita): entrega
     // até a "queda da torre" (🔶 cenário simulado), quando CONGELA. As mensagens
     // são REAIS e verbatim (alerts.jsonl, nó do rio). Contadores por canal ao vivo.
