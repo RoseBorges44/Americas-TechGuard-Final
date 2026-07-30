@@ -10,9 +10,14 @@ português que chega a quem precisa sair de casa.
 Reconstruído sobre o evento real de **04 a 14 de outubro de 2023**: 1.297
 leituras, 36 transições de alerta, pico de cota em 09/10.
 
+### ▶ [Abrir a demonstração no navegador](https://roseborges44.github.io/Americas-TechGuard-Final/)
+
+Nada para instalar. Também funciona **offline**: baixe o repositório e abra
+`index.html` com um duplo clique, com o Wi-Fi desligado.
+
 | | |
 |---|---|
-| **Demonstração** | abra `index.html`. Funciona offline, com o Wi-Fi desligado, sem instalar nada |
+| **Demonstração ao vivo** | https://roseborges44.github.io/Americas-TechGuard-Final/ |
 | **Autora** | Rosemeri Borges, Centro Universitário SENAI/SC (Florianópolis) |
 | **Licença** | MIT (ver `LICENSE`) |
 
@@ -509,12 +514,37 @@ com a malha. É inspirado nas falhas de comunicação documentadas em outubro de
 
 | | |
 |---|---|
-| Tag | `v1.0-final` |
+| Tag | [`v1.0-final`](https://github.com/RoseBorges44/Americas-TechGuard-Final/releases/tag/v1.0-final) |
 | Branch | `main` |
+| Demonstração publicada | https://roseborges44.github.io/Americas-TechGuard-Final/ |
+
+O commit exato desta versão está na página da release, acima.
 
 Esta é a versão entregue para avaliação. Nenhum commit é feito entre o envio do
 link e a apresentação: se algo precisar de correção depois disso, a correção é
 explicada na fala, não escondida no código.
+
+### Como conferir esta entrega em cinco minutos
+
+```bash
+git clone https://github.com/RoseBorges44/Americas-TechGuard-Final.git
+cd Americas-TechGuard-Final
+
+# 1. a demonstracao, sem instalar nada: abra index.html no navegador
+
+# 2. proveniencia dos dados de origem (deve casar com a Semana 8)
+sha256sum python/outputs/payloads.jsonl
+#   d530a69113c9aad6d828aea10e3b4be2e38a2c597c5333b1e13a338e5e3a4ad6
+
+# 3. os 30 testes
+pip install -r python/requirements.txt && python -m pytest python/tests -q
+
+# 4. a paridade sobre os 1.297 payloads
+python tests/gen_ref.py && node tests/parity.mjs
+
+# 5. a compactacao reproduz byte a byte
+node tools/build_event.mjs && git status --short data/   # sem saida = identico
+```
 
 ---
 
