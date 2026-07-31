@@ -143,6 +143,17 @@ o celular do morador com a mensagem verbatim. Há controles de reprodução
 (1x, 8x, 60x), o botão **Queda da torre** e o botão **Verificar paridade**, que
 roda os 1.297 payloads no próprio navegador.
 
+Dois instantes convivem na tela, de propósito: a **régua mostra a série
+contínua**, interpolada entre as leituras horárias, e o **quadro ATG-C1 mostra o
+último pacote efetivamente recebido**. Os dois podem divergir alguns
+centímetros, e isso é o comportamento correto de uma malha que transmite de hora
+em hora. Cada painel carrega um rótulo dizendo qual dos dois ele exibe.
+
+Quando o rio sobe, o celular acrescenta o **horizonte temporal**: o tempo
+estimado até o próximo degrau da escada oficial, derivado na recepção a partir
+da taxa que veio no quadro. É extrapolação linear, não previsão de modelo, e a
+limitação 9 explica quando ela aparece e por que é frágil.
+
 Recomendado tela cheia (F11) em telas de 1366x768.
 
 ### Python: o pipeline de referência
@@ -493,6 +504,34 @@ importante desta entrega, e por isso o projeto especifica o que mediria:
 O botão da demonstração congela o canal por internet para mostrar o contraste
 com a malha. É inspirado nas falhas de comunicação documentadas em outubro de
 2023, mas não é telemetria de uma queda real.
+
+**8. O SNR simulado considera apenas ruído térmico. 🔶**
+O modelo calcula o SNR como `RSSI - piso de ruído`, com piso de **-114,0 dBm**
+(`-174 + 10 log10(250 kHz) + 6 dB` de figura de ruído). É por isso que o painel
+mostra RSSI médio de -97,1 dBm com SNR médio de 16,9 dB: a diferença é
+exatamente os 114 dB do piso, e um sinal de -97,1 dBm está 34,4 dB acima da
+sensibilidade de SF 11, que é de -131,5 dBm. O par é coerente **dentro do
+modelo**, mas o modelo **não inclui interferência, ruído co-canal nem outras
+redes na faixa de 915 MHz**, que é uma faixa não licenciada e compartilhada. Em
+campo o SNR seria menor, e a diferença é justamente o que o **ensaio 2** do
+`docs/protocolo_ensaio_campo.md` mede, com critério de aceite de viés em ±3 dB.
+
+**9. O horizonte temporal é extrapolação linear, não previsão. 🔶**
+A demonstração mostra, no celular, o tempo estimado até o próximo degrau da
+escada oficial, calculado como `(limiar - cota) / taxa` **na recepção**, a
+partir da cota e da taxa que já viajam no quadro de 23 bytes.
+
+A hipótese é de **taxa constante**, e ela é frágil exatamente quando mais
+importa: numa subida acelerada, a taxa instantânea **subestima** o tempo real
+de chegada ao limiar, ou seja, o número exibido é otimista. Por isso a linha só
+aparece com taxa de pelo menos **0,02 m/h** e horizonte de no máximo **12 h**, e
+some com o rio estável ou em recessão. Abaixo de 0,02 m/h a extrapolação perde
+sentido: a 0,01 m/h, subir meio metro levaria 50 horas. Acima de 12 h,
+extrapolar uma taxa instantânea não é defensável num rio que sobe em horas.
+
+Nada disso trafega no rádio: **o horizonte é derivado por quem recebe**, e a
+mensagem de alerta em `python/outputs/alerts.jsonl` permanece exatamente como o
+pipeline a gerou.
 
 ---
 

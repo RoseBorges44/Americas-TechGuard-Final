@@ -137,9 +137,17 @@
       overflow: hidden;
     }
     .panel > .head {
-      display: flex; align-items: center; gap: 8px;
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap; row-gap: 2px;
       font-size: 12px; letter-spacing: .3px; text-transform: uppercase;
       color: var(--ink-soft);
+    }
+    /* rótulo curto que distingue o instante de cada painel: a régua mostra a
+       série contínua, o quadro mostra o último pacote recebido pelo rádio */
+    .head-note {
+      font-size: 10px; letter-spacing: .2px; text-transform: none;
+      color: var(--water-deep); background: rgba(154, 107, 47, .12);
+      border: 1px solid rgba(154, 107, 47, .28); border-radius: 999px;
+      padding: 1px 7px; cursor: help; white-space: nowrap;
     }
     .panel > .placeholder {
       flex: 1; display: flex; align-items: center; justify-content: center;
@@ -301,6 +309,16 @@
     .cel-card.alert .cel-level { color: var(--alert); }
     .cel-card.critical .cel-level { color: var(--critical); }
     .cel-msg { font-size: 9.5px; line-height: 1.3; color: var(--ink); }
+    /* horizonte temporal: DERIVADO na recepção a partir da taxa que veio no
+       quadro. Não é previsão de modelo e não trafega no rádio. */
+    .cel-eta {
+      margin-top: 5px; padding: 4px 6px; border-radius: 5px;
+      background: rgba(154, 107, 47, .13); border-left: 3px solid var(--water);
+      font-size: 9px; line-height: 1.3; color: var(--ink);
+    }
+    .cel-eta b { font-size: 10.5px; }
+    .cel-eta i { display: block; font-style: normal; font-size: 7.5px;
+                 color: var(--ink-soft); margin-top: 2px; }
     .cel-time { font-size: 8px; color: var(--ink-soft); margin-top: auto; }
     .net-frozen {
       position: absolute; inset: 0; background: rgba(40,36,34,.9); color: #fff;
@@ -329,6 +347,13 @@
     .legend .item { display: flex; align-items: center; gap: 6px; }
     .legend .seal { cursor: help; }
     .legend .lg-tot { font-size: 11px; color: var(--seal-todo); }
+    /* o motivo do selo ⬜ do U-RNN fica LEGÍVEL na tela, não só no title (4.9/C3).
+       display:block sobrescreve o flex de .legend .item, que fatiaria a frase. */
+    .legend .lg-urnn {
+      display: block; font-size: 10px; line-height: 1.3;
+      color: var(--ink-soft); max-width: 58ch; flex: 1 1 auto;
+    }
+    .legend .lg-urnn b { color: var(--ink); font-weight: 650; }
 
     @media (prefers-reduced-motion: reduce) {
       * { animation: none !important; transition: none !important; }
@@ -370,7 +395,9 @@
     <!-- GRADE PRINCIPAL - espelha o layout do plano -->
     <section class="grid">
       <div class="panel r-regua">
-        <div class="head">Régua fluviométrica <span class="seal real">✅</span></div>
+        <div class="head">Régua fluviométrica <span class="seal real">✅</span>
+          <span class="head-note" title="A régua interpola entre as leituras horárias para mostrar a subida de forma contínua. O quadro ATG-C1 mostra o último pacote recebido, então pode ficar alguns centímetros atrás: os dois estão certos.">série contínua</span>
+        </div>
         <div class="regua-readout">
           <span id="regua-cota" class="cota">-</span>
           <span id="regua-stage" class="stage-chip">-</span>
@@ -419,6 +446,7 @@
 
       <div class="panel r-quadro">
         <div class="head">Quadro ATG-C1 <span class="seal real">✅</span>
+          <span class="head-note" title="O quadro é o último pacote que chegou pelo rádio. A régua mostra a série contínua, então os dois instantes podem divergir: isso é o comportamento correto de uma malha que transmite de hora em hora.">último quadro recebido</span>
           <span id="quadro-ts" class="hidro-read"></span>
         </div>
         <div class="quadro-contrast">
@@ -466,6 +494,7 @@
                   <div class="cel-app">⚠️ Defesa Civil</div>
                   <div id="cel-level" class="cel-level">-</div>
                   <div id="cel-msg" class="cel-msg">-</div>
+                  <div id="cel-eta" class="cel-eta" hidden></div>
                   <div id="cel-time" class="cel-time"></div>
                 </div>
               </div>
@@ -499,6 +528,8 @@
       <span class="item seal real" id="lg-real" title=""></span>
       <span class="item seal sim" id="lg-sim" title=""></span>
       <span class="item seal todo" id="lg-todo" title=""></span>
+      <span class="item lg-urnn">⬜ <b>Nowcast U-RNN</b> (Semana 7): implementado, mas treinado
+        em <b>surrogate sintético</b>, não calibrado para Blumenau, <b>fora do caminho de alerta</b>.</span>
       <span class="item lg-tot" id="lg-tot" style="margin-left:auto"></span>
     </footer>
   </main>
@@ -993,7 +1024,9 @@
       }
       function setIndex(i) {
         i = Math.max(0, Math.min(n - 1, i));
-        var pt = ptFor(i), st = steps[Math.round(i)];
+        // floor pelo mesmo motivo do quadro: o rótulo nomeia a última leitura
+        // transmitida, enquanto a cota exibida é a série contínua interpolada.
+        var pt = ptFor(i), st = steps[Math.floor(i)];
         mark.setAttribute("x1", pt.x.toFixed(1)); mark.setAttribute("x2", pt.x.toFixed(1));
         dot.setAttribute("cx", pt.x.toFixed(1)); dot.setAttribute("cy", YC(pt.cota).toFixed(1));
         if (readEl) {
@@ -1088,7 +1121,10 @@
       }
 
       function setIndex(i) {
-        var p = payloadByStep[Math.max(0, Math.min(S.n - 1, Math.round(i)))];
+        // Math.floor, não Math.round: o quadro mostra a ÚLTIMA leitura efetivamente
+        // transmitida. Com round, uma fração acima de 0,5 exibiria um payload
+        // posterior ao instante da régua, ou seja, uma leitura que ainda não ocorreu.
+        var p = payloadByStep[Math.max(0, Math.min(S.n - 1, Math.floor(i)))];
         if (!p) return;
         var u8 = ATG.toC1Bin(p), hex = ATG.toHex(u8), vals = decodeVals(u8, p.sensor_type);
 
@@ -1175,9 +1211,49 @@
                c.time.textContent = "recebido " + tsFmt(cur.timestamp) + " · " + cur.chars + " car."; }
       }
 
+      // ---- HORIZONTE TEMPORAL (derivado na recepção, tarefa 4.9/C2) ----------
+      // O quadro ATG-C1 já carrega cota e taxa. O tempo até o próximo degrau da
+      // escada oficial é aritmética sobre esses dois campos, feita por quem
+      // RECEBE. Nada disso trafega no rádio e nada altera alerts.jsonl: a
+      // mensagem verbatim continua exatamente como foi gerada pelo pipeline.
+      //
+      // É EXTRAPOLAÇÃO LINEAR, não previsão de modelo. A hipótese de taxa
+      // constante é frágil, e por isso a linha só aparece dentro destes limites:
+      //   taxa >= TAXA_MIN  : abaixo disso o horizonte perde sentido (a 0,01 m/h
+      //                       subir meio metro levaria 50 h);
+      //   horizonte <= H_MAX: extrapolar taxa instantânea além de meio dia não é
+      //                       defensável num rio que sobe em horas.
+      // Com o rio estável ou em recessão, a linha simplesmente não é exibida.
+      var LADDER_M = [3.0, 4.0, 6.0, 8.0];   // escada oficial da Defesa Civil
+      var TAXA_MIN = 0.02;                   // m/h
+      var H_MAX = 12;                        // horas
+      var etaEl = document.getElementById("cel-eta");
+
+      function proximoDegrau(cota) {
+        for (var k = 0; k < LADDER_M.length; k++) if (cota < LADDER_M[k]) return LADDER_M[k];
+        return null;                          // já está no alerta máximo
+      }
+      function fmtHoras(h) {
+        if (h < 1) return Math.round(h * 60) + " min";
+        return (h < 10 ? h.toFixed(1).replace(".", ",") : Math.round(h)) + " h";
+      }
+      function renderEta(st) {
+        if (!etaEl) return;
+        var cota = st && st.hasCota ? st.cota : null, taxa = st ? st.rate : null;
+        var alvo = cota == null ? null : proximoDegrau(cota);
+        if (cota == null || taxa == null || taxa < TAXA_MIN || alvo == null) { etaEl.hidden = true; return; }
+        var h = (alvo - cota) / taxa;
+        if (!isFinite(h) || h <= 0 || h > H_MAX) { etaEl.hidden = true; return; }
+        etaEl.hidden = false;
+        etaEl.innerHTML = "↗ atinge <b>" + alvo.toFixed(0) + " m</b> em <b>~" + fmtHoras(h) + "</b>" +
+          "<i>extrapolação linear da taxa recebida (" + taxa.toFixed(3).replace(".", ",") +
+          " m/h), calculada na recepção. Não é previsão de modelo.</i>";
+      }
+
       var towerCut = false, cutIndex = 0, curIndex = 0;
       function render() {
         var curTs = S.steps[curIndex].ts;
+        renderEta(S.steps[curIndex]);
         renderCard(mesh, alertAt(curTs));
         var meshN = countAt(curTs);
         meshCountEl.textContent = meshN;
@@ -1193,7 +1269,9 @@
         chNet.classList.toggle("cut", towerCut);
         netLostEl.textContent = (meshN - netN) > 0 ? "· " + (meshN - netN) + " não entregue(s)" : "";
       }
-      function setIndex(i) { curIndex = Math.max(0, Math.min(S.n - 1, Math.round(i))); render(); }
+      // Math.floor pelo mesmo motivo do quadro (4.9/C1): o celular mostra o que
+      // já chegou, nunca uma leitura futura.
+      function setIndex(i) { curIndex = Math.max(0, Math.min(S.n - 1, Math.floor(i))); render(); }
       window.Celular = { setIndex: setIndex };
 
       function updateBtn() {
@@ -1340,7 +1418,7 @@
         // ⬜ integração futura (não implementado)
         { s: "todo", t: "Hardware físico - placas ESP32 / rádio real" },
         { s: "todo", t: "Telemetria AlertaBlu - 15 min (alerta antecipatório)" },
-        { s: "todo", t: "Nowcast U-RNN (Semana 7): existe, não integrado ao alerta" },
+        { s: "todo", t: "Nowcast U-RNN (Semana 7): implementado, mas treinado em surrogate sintético e não calibrado para Blumenau; fora do caminho de alerta" },
       ];
       var cnt = { real: 0, sim: 0, todo: 0 }, list = { real: [], sim: [], todo: [] };
       INV.forEach(function (b) { cnt[b.s]++; list[b.s].push("• " + b.t); });
