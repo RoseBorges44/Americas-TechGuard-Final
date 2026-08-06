@@ -557,13 +557,8 @@ pipeline a gerou.
 | Branch | `main` |
 | Demonstração publicada | https://roseborges44.github.io/Americas-TechGuard-Final/ |
 
-O commit exato desta versão está na página da release, acima.
 
-Esta é a versão entregue para avaliação. Nenhum commit é feito entre o envio do
-link e a apresentação: se algo precisar de correção depois disso, a correção é
-explicada na fala, não escondida no código.
-
-### Como conferir esta entrega em cinco minutos
+### Validação da entrega 
 
 ```bash
 git clone https://github.com/RoseBorges44/Americas-TechGuard-Final.git
