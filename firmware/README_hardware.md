@@ -62,7 +62,7 @@ UART; o nó Meshtastic vizinho, com `serial.mode TEXTMSG`, publica isso como
 **(b) PortNum privado** - enviar os 23 bytes crus em `PRIVATE_APP` (256) usando
 a API Python/C++ do Meshtastic. Mais limpo, exige firmware customizado.
 
-## 5. Testes que eu faria em Joinville (roteiro pronto)
+## 5. Testes que eu faria em Joinville
 
 > Este roteiro é o esboço original da Semana 8. O protocolo completo, com as
 > previsões numéricas declaradas antes da medição e os critérios de aceite de
