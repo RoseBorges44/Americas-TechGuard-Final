@@ -52,7 +52,7 @@ QGIS/ArcGIS, HEC-RAS 2D, Iber, LISFLOOD-FP e SFINCS são **gratuitos**. O que fa
 > regra. O padrão é **pré-computar** e **embutir** os resultados, exatamente como
 > foi feito com o HAND.
 
-## 5. Calibração e validação (o que torna isto sério)
+## 5. Calibração e validação 
 
 - **Âncora observada:** cota oficial da Defesa Civil de **10,19 m em 09/10/2023**;
   a demo já deriva **9,93 m** (erro 0,26 m / 2,6 %) pela curva-chave aproximada.
